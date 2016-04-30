@@ -1,0 +1,37 @@
+{
+  "name": "kappablob",
+  "version": "1.0.0",
+  "description": "Show frequency/recency of Twitch.tv messages in channels.",
+  "main": "server.js",
+  "dependencies": {
+    "irc": "^0.5.0",
+    "md5": "^2.1.0",
+    "redis": "^2.6.0-1",
+    "sprintf-js": "^1.0.3",
+    "async": "^0.2.10",
+    "express": "^3.2.6",
+    "underscore": "^1.8.3",
+    "socket.io": "^0.9.17"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/paimoe/kappablob.git"
+  },
+  "keywords": [
+    "twitch",
+    "d3",
+    "angular",
+    "node"
+  ],
+  "author": "paimoe",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/paimoe/kappablob/issues"
+  },
+  "homepage": "https://github.com/paimoe/kappablob#readme"
+}
