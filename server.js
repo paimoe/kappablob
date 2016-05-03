@@ -1,6 +1,11 @@
 //
 var config = require('./config.js');
 
+if (config.TWITCH_AUTH.length == 0) {
+  console.error('Set twitch auth in config.js');
+  process.exit(1);
+}
+
 var http = require('http');
 var path = require('path');
 var _ = require('underscore');
