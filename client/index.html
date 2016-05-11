@@ -32,10 +32,23 @@
       a {
         cursor:pointer;
       }
+      #reloadchannels {
+        cursor: pointer;
+        font-size: 20px;
+      }
+      .buffer-top {
+        margin-top:20px;
+      }
+      .buffer-bottom {
+        margin-bottom:20px;
+      }
     </style>
   </head>
   <body>
     <div class="container" ng-controller="MainController">
+      <div class="alert alert-danger buffer-top">
+        <b>Still a heavy work in progress.</b> Click one of the top channels at the top, then start.
+      </div>
       <div class="page-header">
         <h1>kappaBlob: <a href="/about">about</a></h1>
         <h2>Top Channels:
@@ -53,8 +66,16 @@
           <h3>Channel is not live</h3>
         </div>
       </div>
-      <div>
-        <button ng-model="running" ng-click="pause()" class="btn btn-success">{{ running_text }}</button> <button class="btn" ng-click="clear()">Clear</button> 
+      <div class="row-fluid buffer-bottom">
+        <div class="btn-group" role="group" aria-label="...">
+          <button type="button" class="btn btn-success" ng-model="running" ng-click="pause()">{{ running_text }}</button>
+          <button type="button" class="btn btn-default">Pie</button>
+          <button type="button" class="btn btn-default">Bubbles</button>
+          <button type="button" class="btn btn-default">Force</button>
+          <button type="button" class="btn btn-default" disabled>Stacked</button>
+          <button type="button" class="btn btn-default" disabled>Voronoi</button>
+          <button type="button" class="btn btn-default" ng-click="clear()">Clear</button> 
+        </div>
         
       </div>
       <div class="row-fluid">
