@@ -1,10 +1,52 @@
-var app = angular.module('kappablob', ['ngRoute'])
+function collide2(node) {
+    
+  var r = node.radius + 16,
+      nx1 = node.x - r,
+      nx2 = node.x + r,
+      ny1 = node.y - r,
+      ny2 = node.y + r;
+  return function(quad, x1, y1, x2, y2) {
+    if (quad.point && (quad.point !== node)) {
+      var x = node.x - quad.point.x,
+          y = node.y - quad.point.y,
+          l = Math.sqrt(x * x + y * y),
+          r = node.radius + quad.point.radius;
+      if (l < r) {
+        l = (l - r) / l * .5;
+        node.x -= x *= l;
+        node.y -= y *= l;
+        quad.point.x += x;
+        quad.point.y += y;
+      }
+    }
+    return x1 > nx2
+        || x2 < nx1
+        || y1 > ny2
+        || y2 < ny1;
+  };
+};
 
-/*
-.config(function($interpolateProvider) {
-    $interpolateProvider.startSymbol('{[{').endSymbol('}]}');
-})
-*/
+          
+        function picknodes(nodes) {
+            var filtered = _.filter(nodes, function(e) { return e.value > 1; });
+            
+            
+            // Find any fixed nodes [@todo: would be nice but it kills the physics somehow]
+            /*for (node_md5 in filtered) {
+                if (node_md5 in scope.$parent.d3.fixedNodes) {
+                    filtered[node_md5].fixed = true;
+                    //filtered[node_md5].charge = -400;????
+                } else {
+                    filtered[node_md5].fixed = false;
+                }
+            }*/
+            
+            //console.log('total nodes', Object.keys(nodes).length, filtered.length);
+            return _.values(filtered);//.filter(function(e) { console.log('filter', e);return true; }));
+            
+        };
+
+var app = angular.module('kappablob', ['ngRoute'])
 
 .config(['$routeProvider', '$locationProvider',
   function($routeProvider, $locationProvider) {
@@ -18,18 +60,12 @@ var app = angular.module('kappablob', ['ngRoute'])
         controller: 'SiteController',
       })
       .when('/:channel', {
-          //templateUrl: 'static/add_onetime_expense.html',
           controller: 'TestController',
       })
       ;
 
     $locationProvider.html5Mode(true);
 }])
-/*
-.controller('TestController', ['$scope', '$routeParams', 
-    function ($scope, $routeParams) {
-        console.log('TestController,', $routeParams);
-    }])*/
     
 .factory('twitchFactory', ['$http', function($http) {
     return {
@@ -38,6 +74,120 @@ var app = angular.module('kappablob', ['ngRoute'])
         },
         'topchannels': function() {
             return $http.get('https://api.twitch.tv/kraken/streams');
+        }
+    }
+}])
+
+.factory('graphFactory', [function() {
+    return {
+        'pie':  {
+            create: function(element) {
+                
+            },
+            update: function(svg, nodes, scope) {
+            }
+        },
+        'bubble': function() {},
+        'force': {
+            'create': function(element) {
+                var nodes = {};
+                  var nodes_flat = [];
+                  
+                  var width = 750,
+                    height = 500,
+                    radius = d3.scale.sqrt().range([0, 12]),
+                    diameter = radius * 2,
+                    padding = 60;
+                    
+                  var svg = d3.select(element[0])
+                    .append("svg")
+                      .attr("width", width)
+                      .attr("height", height);
+                    //.attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+                        
+                    var sel = svg.selectAll('.node');
+                    
+                    // Set up graph stuff
+                    // Force
+                    var force = d3.layout.force()
+                    .size([width, height])
+                    .linkDistance(200) // idkkkkkk?
+                    .friction(0.9) // how slow they wander over
+                    .charge(0)
+                    .on('tick', function() {
+                        var svg2 = svg.selectAll('g');
+                        //svg2.each(collide(.1, picknodes(nodes)));
+                        var p = picknodes(nodes);
+                          var q = d3.geom.quadtree(p),
+                              i = 0,
+                              n = p.length;
+                        
+                          while (++i < n) {
+                            q.visit(collide2(p[i]));
+                          }
+                          
+                        svg.selectAll('g circle')
+                            .attr("cx", function (d) {return d.x;})
+                            .attr("cy", function (d) {return d.y;});
+                        svg.selectAll('g text')
+                            .attr('x', function(d) { return d.x })
+                            .attr('y', function(d) { return d.y });
+                    });
+                return {svg: svg, nodes: nodes, force: force};
+            },
+            'update': function(args) {
+                //console.log('args', args);
+                function g_text(d) {
+                    if (d.radius < 15) {
+                        return '';
+                    }
+                    return d.name.substring(0, 20);
+                };
+                
+                var nodes_flat = picknodes(args.nodes);
+                var sel = args.svg.selectAll('g').data(nodes_flat, function(d) { return d.id; });
+                //sel.data(nodes_flat);
+                
+                // Update old elements
+                var old = sel.attr('class', 'node');
+                old.select('text').text(g_text);
+                old.select('circle').attr('r', function(d) { return d.radius });
+                // Set xy on old elements to what they already are
+                
+                // New elements
+                
+                var g = sel.enter().append('g')
+                    .attr("class", 'node')
+                    .attr('translate', 'transform(0,0)')
+                    .call(args.force.drag);
+                 
+                // After calling enter, sel refers to all elements, so add in all the things we need
+                g.append('circle')
+                    .attr('r', function(d) { return d.radius })
+                    .attr('fill', function(d) { return d.fill })
+                    .attr('id', function(d, i) { return 'bubble-' + d.id });
+                g.append('text')
+                    .attr({
+                      "alignment-baseline": "middle",
+                      "text-anchor": "middle"
+                    })
+                    .text(g_text);
+                  
+                g.on('mouseover', function(d, i) {
+                    args.scope.$parent.highlighted = d.id;
+                    args.scope.$parent.$apply();
+                    //d3.select(this).classed('fixed', d.fixed = true);
+                })
+                .on('mouseout', function(d, i) {
+                    args.scope.$parent.highlighted = ''; 
+                    args.scope.$parent.$apply();
+                    //d3.select(this).classed('fixed', d.fixed = false);
+                });
+                  
+                // Removed elements
+                sel.exit().remove();
+                args.force.nodes(nodes_flat).start();
+            }
         }
     }
 }])
@@ -55,20 +205,30 @@ var app = angular.module('kappablob', ['ngRoute'])
             $scope.new_channel($routeParams.channel);
         });
         
-        twitch.topchannels().success(function(data) {
-            $scope.twitch.topchannels = data.streams.slice(0,10);
-            $scope.twitch.loaded = true;
-        });
+        $scope.reload_topchannels = function() {
+            $scope.twitch.loaded = false;
+            $scope.twitch.topchannels = [];
+            twitch.topchannels().success(function(data) {
+                $scope.twitch.topchannels = data.streams.slice(0,10);
+                $scope.twitch.loaded = true;
+            });
+        };
+        $scope.reload_topchannels();
         
         $scope.new_channel = function(channel) {
             console.log('Joining Channel', channel)  ;
-            // Call factory function to use that channel?
+            
             socket.emit('clearchannels');
             socket.emit('joinchannel', channel);
             
             twitch.channel(channel).success(function(data) {
-               $scope.channel_loaded = true;
-               $scope.channel = data;
+                $scope.channel_loaded = true;
+                if (data.stream === null) {
+                   $scope.channel_not_live = true;
+                } else {
+                   $scope.channel_not_live = false;
+                   $scope.channel = data;
+                }
             });
         };
         
@@ -86,11 +246,15 @@ var app = angular.module('kappablob', ['ngRoute'])
         $scope.compare = '';
         $scope.ignore = [];
         
+        
         socket.on('newcount', function(msg) {
+            // todo: convert this to just use msg, and not have to use _.pairs cause its stupid
             $scope.msgCounts[msg.md5] = msg;
-            var msgCountsA = _.pairs($scope.msgCounts);
-            var totals = msgCountsA.sort(function(a, b) {return a[1].count - b[1].count}).reverse();
-            $scope.totals = {'limit': $scope.limit, 'data': totals};
+            $scope.messages[msg.md5] = msg;
+            
+            var totals = _.values($scope.msgCounts).sort(function(a, b) {return a.count - b.count}).reverse();
+            $scope.totals = totals;
+            
             $scope.$apply();
         });
         
@@ -136,7 +300,7 @@ var app = angular.module('kappablob', ['ngRoute'])
             if ($scope.highlighted === '') {
                 return '';
             }
-            if (row[1].md5 == $scope.highlighted)   {
+            if (row.md5 == $scope.highlighted)   {
                 return 'pielight success';
             }
             return 'pielowlight';
@@ -155,9 +319,9 @@ var app = angular.module('kappablob', ['ngRoute'])
         };
         
         $scope.list_of_messages = function() {
-            var filtered = _.filter($scope.totals.data, function(e) { return e[1].count > 1 });
+            var filtered = _.filter($scope.totals, function(e) { return e.count > 1 });
             if (filtered.length) {
-                $scope.hidden_singles = $scope.totals.data.length - filtered.length;
+                $scope.hidden_singles = $scope.totals.length - filtered.length;
             } else {
                 $scope.hidden_singles = 0;
             }
@@ -166,7 +330,7 @@ var app = angular.module('kappablob', ['ngRoute'])
     }
 ])
 
-.directive('d3Graph', function ( /* dependencies */ ) {
+.directive('d3Pie', function ( /* dependencies */ ) {
   // define constants and helpers used for the directive
   // ...
   return {
@@ -418,23 +582,6 @@ var app = angular.module('kappablob', ['ngRoute'])
             // Resolve collisions between nodes.
             
         var sel = svg.selectAll('.node');
-          
-        function picknodes(nodes) {
-            var filtered = _.filter(nodes, function(e) { return e.value > 1; });
-            
-            // Find any fixed nodes [@todo: would be nice but it kills the physics somehow]
-            /*for (node_md5 in filtered) {
-                if (node_md5 in scope.$parent.d3.fixedNodes) {
-                    filtered[node_md5].fixed = true;
-                    //filtered[node_md5].charge = -400;????
-                } else {
-                    filtered[node_md5].fixed = false;
-                }
-            }*/
-            
-            //console.log('total nodes', Object.keys(nodes).length, filtered.length);
-            return _.values(filtered);//.filter(function(e) { console.log('filter', e);return true; }));
-        };
         function gravity(alpha) {
             return function (d) {
                 d.y += (d.cy - d.y) * alpha;
@@ -581,6 +728,210 @@ var app = angular.module('kappablob', ['ngRoute'])
             // Removed elements
             sel.exit().remove();
             force.nodes(nodes_flat).start();
+        };
+        
+        function add_node(ele) {
+            nodes[ele.md5] = { 
+                id: ele.md5,
+                name: ele.norm, 
+                value: Math.min(100, ele.count),
+                radius: Math.max(10, Math.min(ele.count, 100)),
+                fill: color(_.sample(_.range(0, 4)))
+            };
+        };
+        
+      // 'data' refers to data attr on d3-force ele, which is totals, which points ot $scope.totals
+      scope.$watch('data', function (newVal, oldVal, sc) {
+          if (newVal.data) {
+            var newData = newVal.data.slice(0, 20); // Too many elements = bad fps
+            
+            // Get list of counts
+            var totalmessagevalue = 0;
+            _.each(newData, function(ele, idx, list) {
+                // Calculate for scale of circles
+                totalmessagevalue += ele[1].count;
+                
+                // Don't add again if count hasn't changed, otherwise it seems to reset the entire nodelist
+                // and restarts the animation
+                // Oh maybe cause i didn't copy the px from nodes[ele.md5], i reset the whole object
+                if (ele[1].md5 in nodes) {
+                    var _current = nodes[ele[1].md5];
+                    if (_current.value == ele[1].count) {
+                        return;
+                    } else {
+                        // Update node?
+                        nodes[ele[1].md5].value = ele[1].count;
+                        nodes[ele[1].md5].radius = Math.max(10, Math.min(ele[1].count, 100));
+                    }
+                } else {
+                    add_node(ele[1]);
+                }
+            });
+            
+            // Redraw
+            update_graph();
+          }
+      }); // end scope.$watch
+    }
+  };
+})
+
+.directive('d3Graph', ['graphFactory', function (graphFactory) {
+  // define constants and helpers used for the directive
+  // ...
+  return {
+    restrict: 'E', // the directive can be invoked only by using <my-directive> tag in the template
+    scope: { // attributes bound to the scope of the directive
+      //val: '='
+      data: '=',
+      using: '=',
+      type: '=',
+    },
+    transclude: true,
+    link: function (scope, element, attrs) {
+      
+        var svg, force;
+        var nodes = {};
+        
+        var factory = graphFactory['force'];
+        
+        var graph = factory.create(element);
+        
+        console.log(graph.svg, graph.nodes, graph.force);
+                    
+        var color = d3.scale.ordinal().range(["#69D2E7", "#A7DBD8", "#E0E4CC", "#F38630", "#FA6900"]);
+        
+        function add_node(ele) {
+            graph.nodes[ele.md5] = { 
+                id: ele.md5,
+                name: ele.norm, 
+                value: Math.min(100, ele.count),
+                radius: Math.max(10, Math.min(ele.count, 100)),
+                fill: color(_.sample(_.range(0, 4)))
+            };
+        };
+        
+      // 'data' refers to data attr on d3-force ele, which is totals, which points ot $scope.totals
+      // scope.$watch('type') to change the graph type
+      scope.$watch('data', function (newVal, oldVal, sc) {
+          //console.log(newVal)
+          if (newVal) {
+              
+              // Update nodes
+            var newData = newVal.slice(0, 20); // Too many elements = bad fps
+            
+            // Get list of counts
+            var totalmessagevalue = 0;
+            _.each(newData, function(ele, idx, list) {
+                // Calculate for scale of circles
+                totalmessagevalue += ele.count;
+                
+                // Don't add again if count hasn't changed, otherwise it seems to reset the entire nodelist
+                // and restarts the animation
+                // Oh maybe cause i didn't copy the px from nodes[ele.md5], i reset the whole object
+                if (ele.md5 in graph.nodes) {
+                    var _current = graph.nodes[ele.md5];
+                    if (_current.value == ele.count) {
+                        return;
+                    } else {
+                        // Update node?
+                        graph.nodes[ele.md5].value = ele.count;
+                        graph.nodes[ele.md5].radius = Math.max(10, Math.min(ele.count, 100));
+                    }
+                } else {
+                    add_node(ele);
+                }
+            });
+            
+            // Redraw
+            factory.update({svg: graph.svg, nodes: graph.nodes, scope: scope, force: graph.force});
+          }
+      }); // end scope.$watch
+    }
+  };
+}])
+
+
+.directive('d3Stacked', function () {
+  // ...
+  return {
+    restrict: 'E', // the directive can be invoked only by using <my-directive> tag in the template
+    scope: { // attributes bound to the scope of the directive
+      //val: '='
+      data: '=',
+      using: '=',
+    },
+    transclude: true,
+    link: function (scope, element, attrs) {
+      // initialization, done once per my-directive tag in template. If my-directive is within an
+      // ng-repeat-ed template then it will be called every time ngRepeat creates a new copy of the template.
+      // Draw empty d3 template
+      var nodes = {};
+      var nodes_flat = [];
+      
+      var width = 750,
+        height = 500,
+        radius = d3.scale.sqrt().range([0, 12]),
+        diameter = radius * 2,
+        padding = 60;
+        
+      var svg = d3.select(element[0])
+        .append("svg")
+          .attr("width", width)
+          .attr("height", height);
+        //.attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+        
+        var color = d3.scale.ordinal()
+            .range(["#69D2E7", "#A7DBD8", "#E0E4CC", "#F38630", "#FA6900"]);
+            
+            // Resolve collisions between nodes.
+            
+        var sel = svg.selectAll('.node');
+        
+        // Set up graph stuff
+        // Force
+        
+        // Update function
+        function update_graph() {
+            var nodes_flat = picknodes(nodes);
+            //svg.selectAll('*').remove();
+            
+            //var sel = svg.selectAll('g').data(nodes_flat, function(d) { return d.id; });
+            var sel = svg.selectAll('g').data(nodes_flat, function(d) { return d.id; });
+            //sel.data(nodes_flat);
+            
+            // Update old elements
+            var old = sel.attr('class', 'node');
+            old.select('text').text(g_text);
+            old.select('circle').attr('r', function(d) { return d.radius });
+            // Set xy on old elements to what they already are
+            
+            // New elements
+            
+            var g = sel.enter().append('g')
+                .attr("class", 'node')
+                .attr('translate', 'transform(0,0)')
+                .call(force.drag);
+             
+            // After calling enter, sel refers to all elements, so add in all the things we need
+            g.append('circle')
+                .attr('r', function(d) { return d.radius })
+                .attr('fill', function(d) { return d.fill })
+                .attr('id', function(d, i) { return 'bubble-' + d.id });
+              
+            g.on('mouseover', function(d, i) {
+                scope.$parent.highlighted = d.id;
+                scope.$parent.$apply();
+                //d3.select(this).classed('fixed', d.fixed = true);
+            })
+            .on('mouseout', function(d, i) {
+                scope.$parent.highlighted = ''; 
+                scope.$parent.$apply();
+                //d3.select(this).classed('fixed', d.fixed = false);
+            });
+              
+            // Removed elements
+            sel.exit().remove();
         };
         
         function add_node(ele) {
