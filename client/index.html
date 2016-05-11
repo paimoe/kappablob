@@ -69,9 +69,9 @@
       <div class="row-fluid buffer-bottom">
         <div class="btn-group" role="group" aria-label="...">
           <button type="button" class="btn btn-success" ng-model="running" ng-click="pause()">{{ running_text }}</button>
-          <button type="button" class="btn btn-default">Pie</button>
-          <button type="button" class="btn btn-default">Bubbles</button>
-          <button type="button" class="btn btn-default">Force</button>
+          <button type="button" class="btn btn-default" ng-click="graphType = 'pie'">Pie</button>
+          <button type="button" class="btn btn-default" ng-click="graphType = 'bubble'">Bubbles</button>
+          <button type="button" class="btn btn-default" ng-click="graphType = 'force'">Force</button>
           <button type="button" class="btn btn-default" disabled>Stacked</button>
           <button type="button" class="btn btn-default" disabled>Voronoi</button>
           <button type="button" class="btn btn-default" ng-click="clear()">Clear</button> 
@@ -80,13 +80,13 @@
       </div>
       <div class="row-fluid">
         <div class="col-md-8 piebox">
-          <d3-graph data="totals" using="piehover" type="pie"></d3-graph>
+          <d3-graph data="totals" type="graphType"></d3-graph>
         </div>
         <div class="col-md-4">
 
           <div class="panel panel-default">
             <div class="panel-heading">Filters</div>
-            <div class="panel-body">
+            <div style="display:none" class="panel-body">
                 
                   <div class="col-sm-10 input-group">
                     <input type="text" class="form-control" ng-model="minimum" ng-change="add_filter('minimum')" placeholder="Minimum" />
@@ -127,8 +127,6 @@
       </div>
     </div>
     <script src="/socket.io/socket.io.js"></script>
-    <script src="/js/jquery.min.js"></script>
-    <script src="/js/bootstrap.min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.5/angular.min.js"></script>
     <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.25/angular-route.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js"></script>

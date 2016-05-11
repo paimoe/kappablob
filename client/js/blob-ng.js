@@ -123,7 +123,7 @@ var app = angular.module('kappablob', ['ngRoute'])
                 .enter()
                 .append("g")
                 .attr("class", "arc pieslice")
-                .attr('id', function(d, i) { return 'pie-' + d.data.md5; });
+                .attr('id', function(d, i) { return 'pie-' + d.data.id; });
                 
                 g.append("path")
                 .attr("d", args.x.arc)
@@ -132,14 +132,14 @@ var app = angular.module('kappablob', ['ngRoute'])
                 g.append("text")
                 .attr("transform", function(d) { return "translate(" + args.x.labelArc.centroid(d) + ")"; })
                 .attr("dy", ".35em")
-                .text(function(d) { return d.data[0]; });
+                .text(function(d) { return d.data.name; });
                 
                 // Events
                 g.on('mouseover', function(d, i) {
                     var t = d3.select(this)[0][0];
                     var id = t.id;
                     var data = t.__data__;
-                    var md5 = d.md5;
+                    var md5 = d.data.md5;
                     args.scope.$parent.highlighted = md5;
                     args.scope.$parent.$apply();
                 });
@@ -342,9 +342,13 @@ var app = angular.module('kappablob', ['ngRoute'])
     function($scope, $filter, $routeParams, $route, $location, twitch) {
         
         $scope.d3 = {fixedNodes: []};
+        $scope.graphType =  'pie';
+        $scope.messages = {}; // these 2 are kinda related maybe
+        
         $scope.twitch = {'loaded': false};
         $scope.twitch.topchannels = [];
         $scope.channel_loaded = false;
+        $scope.channel_not_live = true;
         $scope.channel = {};
         
         $scope.$on('$routeChangeSuccess', function() {
@@ -482,71 +486,69 @@ var app = angular.module('kappablob', ['ngRoute'])
   return {
     restrict: 'E', // the directive can be invoked only by using <my-directive> tag in the template
     scope: { // attributes bound to the scope of the directive
-      //val: '='
       data: '=',
-      using: '=',
       type: '=',
     },
     transclude: true,
     link: function (scope, element, attrs) {
       
-        var svg, force;
         var nodes = {};
-        
-        var factory = graphFactory['force'];
-        
-        var graph = factory.create(element);
-        
-        console.log(graph.svg, graph.nodes, graph.force);
                     
         var color = d3.scale.ordinal().range(["#69D2E7", "#A7DBD8", "#E0E4CC", "#F38630", "#FA6900"]);
         
-        function add_node(ele) {
-            graph.nodes[ele.md5] = { 
-                id: ele.md5,
-                name: ele.norm, 
-                value: Math.min(100, ele.count),
-                radius: Math.max(10, Math.min(ele.count, 100)),
-                fill: color(_.sample(_.range(0, 4)))
+        scope.$watch('type', function(graphType, oldVal) {
+            //console.log('Switch graph type', graphType);
+            
+            // Remove any old graphs
+            d3.select(element[0]).selectAll('*').remove();
+            
+            var factory = graphFactory[graphType];
+            var graph = factory.create(element);
+            
+            // ugly, make better
+            function add_node(ele) {
+                graph.nodes[ele.md5] = { 
+                    id: ele.md5,
+                    name: ele.norm, 
+                    value: Math.min(100, ele.count),
+                    radius: Math.max(10, Math.min(ele.count, 100)),
+                    fill: color(_.sample(_.range(0, 4)))
+                };
             };
-        };
         
-      // 'data' refers to data attr on d3-force ele, which is totals, which points ot $scope.totals
-      // scope.$watch('type') to change the graph type
-      scope.$watch('data', function (newVal, oldVal, sc) {
-          //console.log(newVal)
-          if (newVal) {
-              
-              // Update nodes
-            var newData = newVal.slice(0, 20); // Too many elements = bad fps
-            
-            // Get list of counts
-            var totalmessagevalue = 0;
-            _.each(newData, function(ele, idx, list) {
-                // Calculate for scale of circles
-                totalmessagevalue += ele.count;
+            scope.$watch('data', function (newVal, oldVal, sc) {
+                //console.log(newVal)
+                if (newVal) {
                 
-                // Don't add again if count hasn't changed, otherwise it seems to reset the entire nodelist
-                // and restarts the animation
-                // Oh maybe cause i didn't copy the px from nodes[ele.md5], i reset the whole object
-                if (ele.md5 in graph.nodes) {
-                    var _current = graph.nodes[ele.md5];
-                    if (_current.value == ele.count) {
-                        return;
-                    } else {
-                        // Update node?
-                        graph.nodes[ele.md5].value = ele.count;
-                        graph.nodes[ele.md5].radius = Math.max(10, Math.min(ele.count, 100));
-                    }
-                } else {
-                    add_node(ele);
+                    // Update nodes
+                    var newData = newVal.slice(0, 20); // Too many elements = bad fps
+                    
+                    // Get list of counts
+                    _.each(newData, function(ele, idx, list) {
+                        
+                        // Don't add again if count hasn't changed, otherwise it seems to reset the entire nodelist
+                        // and restarts the animation
+                        // Oh maybe cause i didn't copy the px from nodes[ele.md5], i reset the whole object
+                        if (ele.md5 in graph.nodes) {
+                            var _current = graph.nodes[ele.md5];
+                            if (_current.value == ele.count) {
+                                return;
+                            } else {
+                                // Update node?
+                                graph.nodes[ele.md5].value = ele.count;
+                                // Move to force graph, cause eg pie doesn't need it
+                                graph.nodes[ele.md5].radius = Math.max(10, Math.min(ele.count, 100));
+                            }
+                        } else {
+                            add_node(ele);
+                        }
+                    });
+                    
+                    // Redraw
+                    factory.update({svg: graph.svg, nodes: graph.nodes, scope: scope, x: graph.x});
                 }
-            });
-            
-            // Redraw
-            factory.update({svg: graph.svg, nodes: graph.nodes, scope: scope, x: graph.x});
-          }
-      }); // end scope.$watch
+            }); // end scope.$watch
+        }); // end $watch on the graphType
     }
   };
 }])
