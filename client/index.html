@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en" ng-app="kappablob">
   <head>
-    <title>Chat Example</title>
+    <title ng-bind="htmltitle">kappablob2</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
 
@@ -47,10 +47,10 @@
   <body>
     <div class="container" ng-controller="MainController">
       <div class="alert alert-danger buffer-top">
-        <b>Still a heavy work in progress.</b> Click one of the top channels at the top, then start.
+        <b>Just for fun.</b> Click one of the top channels at the top, then start. Or change the url to a live channel url.
       </div>
       <div class="page-header">
-        <h1>kappaBlob: <a href="/about">about</a></h1>
+        <h1>kappablob</h1>
         <h2>Top Channels:
           <span class="glyphicon glyphicon-refresh" ng-click="reload_topchannels()" id="reloadchannels" title="Refresh"></span>
           <span ng-hide="twitch.loaded">loading...</span>
@@ -69,11 +69,13 @@
       <div class="row-fluid buffer-bottom">
         <div class="btn-group" role="group" aria-label="...">
           <button type="button" class="btn btn-success" ng-model="running" ng-click="pause()">{{ running_text }}</button>
-          <button type="button" class="btn btn-default" ng-click="graphType = 'pie'">Pie</button>
-          <button type="button" class="btn btn-default" ng-click="graphType = 'bubble'">Bubbles</button>
-          <button type="button" class="btn btn-default" ng-click="graphType = 'force'">Force</button>
+          <button type="button" class="btn btn-default" ng-class="{'btn-info': graphType == 'pie'}" ng-click="graphType = 'pie'">Pie</button>
+          <button type="button" class="btn btn-default" ng-class="{'btn-info': graphType == 'bubble'}" ng-click="graphType = 'bubble'">Bubbles</button>
+          <button type="button" class="btn btn-default" ng-class="{'btn-info': graphType == 'force'}" ng-click="graphType = 'force'">Force</button>
+          <!--
           <button type="button" class="btn btn-default" disabled>Stacked</button>
           <button type="button" class="btn btn-default" disabled>Voronoi</button>
+          -->
           <button type="button" class="btn btn-default" ng-click="clear()">Clear</button> 
         </div>
         
@@ -86,17 +88,19 @@
 
           <div class="panel panel-default">
             <div class="panel-heading">Filters</div>
-            <div style="display:none" class="panel-body">
+            <div style="" class="panel-body">
                 
                   <div class="col-sm-10 input-group">
-                    <input type="text" class="form-control" ng-model="minimum" ng-change="add_filter('minimum')" placeholder="Minimum" />
-                    <a class="input-group-addon">[?]</a>
+                    <input type="number" class="form-control" min="2" ng-model="min" ng-change="add_filter('minimum')" placeholder="Minimum" />
+                    <a class="input-group-addon"></a>
                   </div>
+                  
                   <br />
                   <div class="col-sm-10 input-group">
                     <input type="text" class="form-control" ng-model="compare" ng-change="do_compare()" placeholder="Compare" />
-                    <a class="input-group-addon">[?]</a>
+                    <a class="input-group-addon"></a>
                   </div>
+                  <!--
                   <br />
                   <div class="col-sm-10 input-group">
                     <input type="text" class="form-control" ng-model="ignore" ng-change="do_ignore()" placeholder="Ignore" />
@@ -127,9 +131,7 @@
       </div>
     </div>
     <script src="/socket.io/socket.io.js"></script>
-    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.5/angular.min.js"></script>
-    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.25/angular-route.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js"></script>
+    <script src="/static/kappa.js"></script>
     <script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>
     <script src="/js/blob-ng.js"></script>
   </body>

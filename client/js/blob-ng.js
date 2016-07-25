@@ -29,7 +29,7 @@ function collide2(node) {
 };
 
           
-        function picknodes(nodes) {
+        function _______picknodes(nodes) {
             var filtered = _.filter(nodes, function(e) { return e.value > 1; });
             
             // Find any fixed nodes [@todo: would be nice but it kills the physics somehow]
@@ -47,7 +47,22 @@ function collide2(node) {
             
         };
 
-var app = angular.module('kappablob', ['ngRoute'])
+var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
+
+.constant('EVENTS', {
+    clear: 'kappa-clear',
+    hover_piece: 'kappa-hover-item',
+    hover_piece_out: 'kappa-hover-item-out',
+    hover_list: 'kappa-hover-list',
+    hover_list_out: 'kappa-hover-list-out',
+    compare: 'kappa-compare',
+    redo_graph: 'kappa-redo-graph',
+})
+.constant('AMPLITUDE_KEY', '')
+
+.run(['$rootScope', function($rootScope) {
+    $rootScope.kappa = {};
+}])
 
 .config(['$routeProvider', '$locationProvider',
   function($routeProvider, $locationProvider) {
@@ -67,6 +82,28 @@ var app = angular.module('kappablob', ['ngRoute'])
 
     $locationProvider.html5Mode(true);
 }])
+
+.service('amp', ['$amplitude', '$rootScope', '$location', 'AMPLITUDE_KEY', function ($amplitude, $rootScope, $location, AMPLITUDE_KEY) {
+  function init() {
+    $amplitude.init(AMPLITUDE_KEY);
+  }
+
+  /*function identifyUser(userId, userProperties) {
+    $amplitude.setUserId(userId);
+    $amplitude.setUserProperties(userProperties);
+  }*/
+
+  function logEvent(eventName, params) {
+    $amplitude.logEvent(eventName, params);
+  }
+
+  return {
+    init: init,
+    event: logEvent,
+    //identifyUser: identifyUser
+  };
+
+}])
     
 .factory('twitchFactory', ['$http', function($http) {
     return {
@@ -79,7 +116,7 @@ var app = angular.module('kappablob', ['ngRoute'])
     }
 }])
 
-.factory('graphFactory', [function() {
+.factory('graphFactory', ['$rootScope', 'EVENTS', 'picknodesFilter', function($rootScope, EVENTS, picknodes) {
     return {
         'pie':  {
             create: function(element) {
@@ -106,7 +143,7 @@ var app = angular.module('kappablob', ['ngRoute'])
             },
             update: function(args) {
                 // Redraw the svg, using scope.totals
-                //console.log(args.nodes);
+                //console.log(EVENTS);
                 
                 args.svg.selectAll('*').remove(); // Clear out the pie bits
                 
@@ -132,20 +169,15 @@ var app = angular.module('kappablob', ['ngRoute'])
                 g.append("text")
                 .attr("transform", function(d) { return "translate(" + args.x.labelArc.centroid(d) + ")"; })
                 .attr("dy", ".35em")
-                .text(function(d) { return d.data.name; });
+                .text(function(d) { return d.data.name.substring(0, 10); });
                 
                 // Events
                 g.on('mouseover', function(d, i) {
-                    var t = d3.select(this)[0][0];
-                    var id = t.id;
-                    var data = t.__data__;
-                    var md5 = d.data.md5;
-                    args.scope.$parent.highlighted = md5;
-                    args.scope.$parent.$apply();
+                    var md5 = d.data.id;
+                    $rootScope.$broadcast(EVENTS.hover_piece, md5);
                 });
                 g.on('mouseout', function(d, i) {
-                    args.scope.$parent.highlighted = ''; 
-                    args.scope.$parent.$apply();
+                    $rootScope.$broadcast(EVENTS.hover_piece_out);
                 });
             
             }
@@ -219,19 +251,13 @@ var app = angular.module('kappablob', ['ngRoute'])
                     return '';
                 });
                 
-                // Events
-                /*g.on('mouseover', function(d, i) {
-                var t = d3.select(this)[0][0];
-                var id = t.id;
-                var data = t.__data__;
-                var md5 = piedata[i][0];
-                scope.$parent.highlighted = md5;
-                scope.$parent.$apply();
+                node.on('mouseover', function(d, i) {
+                    var md5 = d.id;
+                    $rootScope.$broadcast(EVENTS.hover_piece, md5);
                 });
-                g.on('mouseout', function(d, i) {
-                scope.$parent.highlighted = ''; 
-                scope.$parent.$apply();
-                });*/
+                node.on('mouseout', function(d, i) {
+                    $rootScope.$broadcast(EVENTS.hover_piece_out);
+                });
             }
         },
         'force': {
@@ -320,14 +346,11 @@ var app = angular.module('kappablob', ['ngRoute'])
                 .text(args.x.g_text);
                 
                 g.on('mouseover', function(d, i) {
-                    args.scope.$parent.highlighted = d.id;
-                    args.scope.$parent.$apply();
-                    //d3.select(this).classed('fixed', d.fixed = true);
-                })
-                .on('mouseout', function(d, i) {
-                    args.scope.$parent.highlighted = ''; 
-                    args.scope.$parent.$apply();
-                    //d3.select(this).classed('fixed', d.fixed = false);
+                    var md5 = d.id;
+                    $rootScope.$broadcast(EVENTS.hover_piece, md5);
+                });
+                g.on('mouseout', function(d, i) {
+                    $rootScope.$broadcast(EVENTS.hover_piece_out);
                 });
                 
                 // Removed elements
@@ -338,12 +361,44 @@ var app = angular.module('kappablob', ['ngRoute'])
     }
 }])
 
-.controller('MainController', ['$scope', '$filter','$routeParams', '$route', '$location', 'twitchFactory',
-    function($scope, $filter, $routeParams, $route, $location, twitch) {
+.filter('picknodes', ['$rootScope', 'EVENTS', function($rootScope, EVENTS) {
+    return function(nodes) {
+        var limit = $rootScope.kappa.limit || 1;
+        //console.log('limit', limit);
+        var filtered = _.filter(nodes, function(e) { return e.value >= limit; });
+        
+        // Run compare
+        if (Array.isArray($rootScope.kappa.compare) && $rootScope.kappa.compare.length > 1) {
+            var filtered = _.filter(filtered, function(e) { return $rootScope.kappa.compare.indexOf(e.name) !== -1 });
+        }
+        
+        // Run ignore
+        
+        // Find any fixed nodes [@todo: would be nice but it kills the physics somehow]
+        /*for (node_md5 in filtered) {
+            if (node_md5 in scope.$parent.d3.fixedNodes) {
+                filtered[node_md5].fixed = true;
+                //filtered[node_md5].charge = -400;????
+            } else {
+                filtered[node_md5].fixed = false;
+            }
+        }*/
+        
+        //console.log('total nodes', Object.keys(nodes).length, filtered.length);
+        return _.values(filtered);//.filter(function(e) { console.log('filter', e);return true; }));
+    }
+}])
+
+.controller('MainController', ['$rootScope', '$scope', '$filter','$routeParams', '$route', '$location', 'EVENTS', 'twitchFactory', 'amp',
+    function($rootScope, $scope, $filter, $routeParams, $route, $location, EVENTS, twitch, amp) {
+        
+        amp.init();
         
         $scope.d3 = {fixedNodes: []};
         $scope.graphType =  'pie';
         $scope.messages = {}; // these 2 are kinda related maybe
+        $scope.min = 2;
+        $rootScope.htmltitle = 'kappablob';
         
         $scope.twitch = {'loaded': false};
         $scope.twitch.topchannels = [];
@@ -352,6 +407,8 @@ var app = angular.module('kappablob', ['ngRoute'])
         $scope.channel = {};
         
         $scope.$on('$routeChangeSuccess', function() {
+            $rootScope.htmltitle = $routeParams.channel + ' - kappablob';
+            amp.event('new channel', {'name': $routeParams.channel});
             $scope.new_channel($routeParams.channel);
         });
         
@@ -408,26 +465,40 @@ var app = angular.module('kappablob', ['ngRoute'])
             $scope.$apply();
         });
         
+        $scope.$on(EVENTS.hover_piece, function(evt, md5) {
+            $scope.highlighted = md5;
+            $scope.$apply();
+        });
+        $scope.$on(EVENTS.hover_piece_out, function(evt) {
+            $scope.highlighted = '';
+            $scope.$apply();
+        });
+        $scope.$watch('min', function(newVal, oldVal) {
+            $rootScope.kappa.limit = newVal;
+            $rootScope.$broadcast(EVENTS.redo_graph);
+        });
+        $scope.$watch('compare', function(newVal, oldVal) {
+            $rootScope.kappa.compare = newVal.split(' ');
+            //console.log($rootScope.kappa.compare)
+            $rootScope.$broadcast(EVENTS.redo_graph);
+        })
+        
         $scope.results = function() {
             //console.log($scope.msgCounts);  
             return $scope.totals;
         };
-
-        $scope.send = function send() {
-          console.log('Sending message:', $scope.text);
-          socket.emit('message', $scope.text);
-          $scope.text = '';
-        };
         
         $scope.pause = function() {
+            console.log('start pause ', $routeParams.channel);
             if ($scope.running === true) {
                 $scope.running = false;
                 $scope.running_text = 'Start';
-                socket.emit('stop');
+                
+                socket.emit('stop', $routeParams.channel);
             } else {
                 $scope.running = true;
                 $scope.running_text = 'Stop';
-                socket.emit('start');
+                socket.emit('start', $routeParams.channel);
             }
         };
         
@@ -435,11 +506,16 @@ var app = angular.module('kappablob', ['ngRoute'])
             $scope.messages = [];
             $scope.msgCounts = {};
             $scope.totals = [];
+            $rootScope.NODES = {};
+            $rootScope.$broadcast(EVENTS.clear);
         };
         
         $scope.do_compare = function() {
             // Restrict output to only the shown keywords
-            //var kw = $scope.compare.split(' ');
+            var kw = $scope.compare.split(' ');
+            //console.log(kw);
+            $rootScope.kappa.compare = kw;
+            //$rootScope.$broadcast(EVENTS.compare, kw);
         };
         
         $scope.do_ignore = function() {
@@ -469,7 +545,7 @@ var app = angular.module('kappablob', ['ngRoute'])
         };
         
         $scope.list_of_messages = function() {
-            var filtered = _.filter($scope.totals, function(e) { return e.count > 1 });
+            var filtered = _.filter($scope.totals, function(e) { return e.count > $scope.min });
             if (filtered.length) {
                 $scope.hidden_singles = $scope.totals.length - filtered.length;
             } else {
@@ -480,7 +556,7 @@ var app = angular.module('kappablob', ['ngRoute'])
     }
 ])
 
-.directive('d3Graph', ['graphFactory', function (graphFactory) {
+.directive('d3Graph', ['$rootScope', 'EVENTS', 'graphFactory', function ($rootScope, EVENTS, graphFactory) {
   // define constants and helpers used for the directive
   // ...
   return {
@@ -514,7 +590,22 @@ var app = angular.module('kappablob', ['ngRoute'])
                     radius: Math.max(10, Math.min(ele.count, 100)),
                     fill: color(_.sample(_.range(0, 4)))
                 };
+                $rootScope.NODES = graph.nodes;
             };
+            
+            scope.$on(EVENTS.clear, function(event, args) {
+                factory.update({svg: graph.svg, nodes: {}, scope: scope, x: graph.x});
+                graph.nodes = {};
+            });
+            
+            /*scope.$on(EVENTS.compare, function(event, compare) {
+               console.log('do compare', compare); 
+               $rootScope.kappa.compare = compare;
+            });*/
+            
+            scope.$on(EVENTS.redo_graph, function(event) {
+                factory.update({svg: graph.svg, nodes: graph.nodes, scope: scope, x: graph.x});
+            });
         
             scope.$watch('data', function (newVal, oldVal, sc) {
                 //console.log(newVal)
@@ -543,10 +634,10 @@ var app = angular.module('kappablob', ['ngRoute'])
                             add_node(ele);
                         }
                     });
-                    
-                    // Redraw
-                    factory.update({svg: graph.svg, nodes: graph.nodes, scope: scope, x: graph.x});
                 }
+                    
+                // Redraw
+                factory.update({svg: graph.svg, nodes: graph.nodes, scope: scope, x: graph.x});
             }); // end scope.$watch
         }); // end $watch on the graphType
     }

@@ -1,4 +1,15 @@
 //
+
+function removeItem(d, key) {
+   if (!d.hasOwnProperty(key))
+      return
+   if (isNaN(parseInt(key)) || !(d instanceof Array))
+      delete d[key]
+   else
+      d.splice(key, 1)
+  return d;
+};
+
 var config = require('./config.js');
 
 if (config.TWITCH_AUTH.length == 0) {
@@ -104,17 +115,19 @@ client.addListener('message', function (from, to, message) {
 // Accumulation
 var messages = [];
 var msgcounts = {};
-
+io.set('log level', 1);
 io.on('connection', function (socket) {
   
     // By default, don't actually send out the shit until they click go
-    socket.on('start', function() {
-        running.push(socket.id);
+    socket.on('start', function(channel) {
+        //running.push(socket.id);
+        socket.join(channel);
         console.log(['Added', socket.id, running]);
     });
     
-    socket.on('stop', function() {
-        running = _.without(running, socket.id);
+    socket.on('stop', function(channel) {
+        //running = _.without(running, socket.id);
+        socket.leave(channel);
         console.log(['Removed', socket.id, running]);
     });
     
@@ -126,8 +139,8 @@ io.on('connection', function (socket) {
     sockets[socket.id] = socket;
 
     socket.on('disconnect', function () {
-      running = _.without(running, socket.id);
-      delete sockets[socket.id];//sockets.splice(sockets.indexOf(socket), 1);
+      //running = _.without(running, socket.id);
+      sockets = removeItem(sockets, socket.id);
       //updateRoster();
     });
     
@@ -145,7 +158,7 @@ io.on('connection', function (socket) {
     
     // New tab = new socket id
     socket.on('joinchannel', function(data) {
-      console.log('JOIN CHANNEL', data, socket.id);
+      //console.log('JOIN CHANNEL', data, socket.id);
       if (_.isArray(channels_subbed[data])) {
         channels_subbed[data][socket.id] = socket;
       } else {
@@ -154,6 +167,7 @@ io.on('connection', function (socket) {
         // Joined a new channel
         client.join('#' + data);
       }
+      //console.log('chann subbed', channels_subbed);
     });
 
   });
@@ -171,11 +185,7 @@ function updateRoster() {
 }
 
 function broadcast(event, data, channel) {
-    _.each(channels_subbed[channel], function(ele, idx, list) {
-        if (_.indexOf(running, idx) != -1) {
-          ele.emit(event, data);
-        };
-    });
+  io.sockets.to(channel).emit(event, data);
 }
 
 function normalize(text) {
@@ -195,12 +205,6 @@ function normalize(text) {
   }
   
   return text;
-}
-
-function pickHighest(term, normalized) {
-  // Keep up the most common one
-  var group = highestNormalized[normalized];
-  // Will contain eg 'vac' => 'VAC' V A C V.A.C
 }
 
 function part_empty_channels() {}
