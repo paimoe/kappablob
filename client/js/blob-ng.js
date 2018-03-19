@@ -58,7 +58,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
     compare: 'kappa-compare',
     redo_graph: 'kappa-redo-graph',
 })
-.constant('AMPLITUDE_KEY', '')
+.constant('AMPLITUDE_KEY', 'f9617322a9f6b068ddc00f550c379845')
 
 .run(['$rootScope', function($rootScope) {
     $rootScope.kappa = {};
@@ -81,6 +81,32 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
       ;
 
     $locationProvider.html5Mode(true);
+}])
+
+.config(['$httpProvider', function($httpProvider) {
+    $httpProvider.interceptors.push(function() {
+      return {
+       'request': function(config) {
+           // same as above
+           config.headers['Client-ID'] = 'rj8utwzfkwrueeaff8g9eciakig863b';
+           console.log(config);
+           
+           return config;
+        },
+    
+        'response': function(response) {
+           // same as above
+           return response;
+        },
+        /*'responseError': function(resp) {
+            if (resp.status == 401) {
+                // Require login
+                window.location.reload(true);
+            }
+            return resp;
+        }*/
+      };
+    });
 }])
 
 .service('amp', ['$amplitude', '$rootScope', '$location', 'AMPLITUDE_KEY', function ($amplitude, $rootScope, $location, AMPLITUDE_KEY) {
@@ -111,7 +137,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
             return $http.get('https://api.twitch.tv/kraken/streams/' + channel);
         },
         'topchannels': function() {
-            return $http.get('https://api.twitch.tv/kraken/streams');
+            return $http.get('https://api.twitch.tv/kraken/streams?client_id=rj8utwzfkwrueeaff8g9eciakig863b');
         }
     }
 }])
@@ -545,7 +571,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
         };
         
         $scope.list_of_messages = function() {
-            var filtered = _.filter($scope.totals, function(e) { return e.count > $scope.min });
+            var filtered = _.filter($scope.totals, function(e) { return e.count >= $scope.min });
             if (filtered.length) {
                 $scope.hidden_singles = $scope.totals.length - filtered.length;
             } else {
@@ -571,6 +597,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
         var nodes = {};
                     
         var color = d3.scale.ordinal().range(["#69D2E7", "#A7DBD8", "#E0E4CC", "#F38630", "#FA6900"]);
+        var color = d3.scale.ordinal().range(['#73C8A9','#DEE1B6','#E1B866','#BD5532','#373B44']);
         
         scope.$watch('type', function(graphType, oldVal) {
             //console.log('Switch graph type', graphType);

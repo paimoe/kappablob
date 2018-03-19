@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<style>
+
+
+</style>
+<body>
+<script src="//d3js.org/d3.v3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js"></script>
+<script>
+
+var DATA = {
+    a: {id: 'ass', opt1: 1, opt2: 2, value: 5, radius: 15, fill: '#000'},
+    b: {id: 'ass2',opt1: 2, opt2: 3, value: 10, radius: 15, fill: '#f00'}
+};
+
+var nodes = DATA;
+      var nodes_flat = [];
+      
+      var width = 750,
+        height = 500,
+        radius = d3.scale.sqrt().range([0, 12]),
+        diameter = radius * 2,
+        padding = 6;
+        
+      var svg = d3.select('body')
+        .append("svg")
+          .attr("width", width)
+          .attr("height", height)
+        .append('g');
+        //.attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+        
+        var color = d3.scale.ordinal()
+            .range(["#69D2E7", "#A7DBD8", "#E0E4CC", "#F38630", "#FA6900"]);
+            
+            // Resolve collisions between nodes.
+            
+        var sel = svg.selectAll('.node');
+        
+        function picknodes(nodes) {
+            return _.values(nodes);
+            var filtered = _.filter(nodes, function(e) { return e.value > 1; });
+            //console.log('total nodes', Object.keys(nodes).length, filtered.length);
+            return _.values(filtered);//.filter(function(e) { console.log('filter', e);return true; }));
+        }
+            
+        function gravity(alpha) {
+            return function (d) {
+                d.y += (d.cy - d.y) * alpha;
+                d.x += (d.cx - d.x) * alpha;
+            };
+        };
+        function collide(alpha, nodes) {
+            var quadtree = d3.geom.quadtree(nodes);
+            return function (d) {
+                var r = d.radius + radius.domain()[1] + padding,
+                    nx1 = d.x - r,
+                    nx2 = d.x + r,
+                    ny1 = d.y - r,
+                    ny2 = d.y + r;
+                quadtree.visit(function (quad, x1, y1, x2, y2) {
+                    if (quad.point && (quad.point !== d)) {
+                        var x = d.x - quad.point.x,
+                            y = d.y - quad.point.y,
+                            l = Math.sqrt(x * x + y * y),
+                            r = d.radius + quad.point.radius + (d.color !== quad.point.color) * padding;
+                        if (l < r) {
+                            l = (l - r) / l * alpha;
+                            d.x -= x *= l;
+                            d.y -= y *= l;
+                            quad.point.x += x;
+                            quad.point.y += y;
+                        }
+                    }
+                    return x1 > nx2 || x2 < nx1 || y1 > ny2 || y2 < ny1;
+                });
+            };
+        };
+        function tick(tickdata, sel, nodes_flat) {
+            //circles.each(gravity(.2 * e.alpha));
+           // console.log('tick', d);
+            var svg2 = svg.selectAll('g circle');
+            svg2.each(collide(.1, picknodes(nodes)));
+            svg2.attr("cx", function (d) {return d.x;})
+                .attr("cy", function (d) {return d.y;});
+                
+            // Position labsl
+            svg.selectAll('g text')
+              .attr('x', function(d) { return d.x })
+              .attr('y', function(d) { return d.y });
+        };
+        
+        // Set up graph stuff
+        // Force
+        var force = d3.layout.force()
+        .size([width, height])
+        .linkDistance(200) // idkkkkkk?
+        .friction(0.9) // how slow they wander over
+        .charge(0)
+        .on('tick', tick);
+        
+        // Update function
+        function update_graph() {
+            var nodes_flat = picknodes(nodes);
+            
+           // var sel = svg.selectAll('.node').data(nodes_flat, function(d) { return d.id; });
+            var sel = svg.selectAll('g').data(nodes_flat, function(d) { return d.id; });
+            //sel.data(nodes_flat);
+            
+            // Update old elements
+            //sel.attr('class', 'node');
+            // Set xy on old elements to what they already are
+            //.attr('cx', function(d) { console.log('old cx', d);return d.cx });
+            
+            // New elements
+            
+            var g = sel.enter().append('g')
+                .attr("class", 'node')
+                //.attr('title', function(d) { return '' })
+                .attr('translate', function(d, i) { return 'transform(' + d.x + ',' + d.y + ')' })
+                .call(force.drag);
+             
+            // After calling enter, sel refers to all elements, so add in all the things we need
+            g.append('circle')
+                .attr('r', function(d) { return d.radius })
+                .attr('fill', function(d) { return d.fill })
+                .attr('title', function(d) { return d.name })
+                .attr('id', function(d, i) { return 'bubble-' + d.id });
+            g.append('text')
+                .attr("dx", function(d) { return -20 })
+                .text('ahhhhhhhhh');
+            
+              
+            // Removed elements
+            sel.exit().remove();
+            force.nodes(nodes_flat).start();
+        };
+
+      // whenever the bound 'exp' expression changes, execute this 
+      // totals refers to $scope.totals (i think)
+      // Got data
+        
+        update_graph();
+        
+        function add_node( radius) {
+            var r = Math.random();
+            nodes[r] = {'value': Math.random(), 'radius': radius, 'id': r};
+            update_graph();
+            
+        }
+        function size(id, newsize) {
+            nodes[id].radius = newsize;
+            update_graph();
+        }
+        
+        </script>
+        </body></html>
