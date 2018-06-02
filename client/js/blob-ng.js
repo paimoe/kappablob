@@ -28,25 +28,6 @@ function collide2(node) {
   };
 };
 
-          
-        function _______picknodes(nodes) {
-            var filtered = _.filter(nodes, function(e) { return e.value > 1; });
-            
-            // Find any fixed nodes [@todo: would be nice but it kills the physics somehow]
-            /*for (node_md5 in filtered) {
-                if (node_md5 in scope.$parent.d3.fixedNodes) {
-                    filtered[node_md5].fixed = true;
-                    //filtered[node_md5].charge = -400;????
-                } else {
-                    filtered[node_md5].fixed = false;
-                }
-            }*/
-            
-            //console.log('total nodes', Object.keys(nodes).length, filtered.length);
-            return _.values(filtered);//.filter(function(e) { console.log('filter', e);return true; }));
-            
-        };
-
 var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
 
 .constant('EVENTS', {
@@ -61,6 +42,12 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
 })
 .constant('AMPLITUDE_KEY', 'f9617322a9f6b068ddc00f550c379845')
 .constant('WS_URL', 'http://lvh.me:8000/ws')
+.constant('CLIENT_ID', 'rj8utwzfkwrueeaff8g9eciakig863b')
+.constant('CONFIG', {
+    'AMPLITUDE_KEY': 'f9617322a9f6b068ddc00f550c379845',
+    'WS_UR': 'http://lvh.me:8000/ws',
+    'CLIENT_ID': 'rj8utwzfkwrueeaff8g9eciakig863b'
+})
 
 .run(['$rootScope', function($rootScope) {
     $rootScope.kappa = {};
@@ -70,6 +57,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
     $rootScope.messages = [];
     $rootScope.msgCounts = {};
     $rootScope.totals = [];
+    $rootScope.server_status = 'down';
 }])
 
 .config(['$routeProvider', '$locationProvider',
@@ -91,13 +79,12 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
     $locationProvider.html5Mode(true);
 }])
 
-.config(['$httpProvider', function($httpProvider) {
+.config(['$httpProvider', 'CONFIG', function($httpProvider, CONFIG) {
     $httpProvider.interceptors.push(function() {
       return {
        'request': function(config) {
            // same as above
-           config.headers['Client-ID'] = 'rj8utwzfkwrueeaff8g9eciakig863b';
-           //console.log(config);
+           config.headers['Client-ID'] = CONFIG.CLIENT_ID;
            
            return config;
         },
@@ -117,9 +104,9 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
     });
 }])
 
-.service('amp', ['$amplitude', '$rootScope', '$location', 'AMPLITUDE_KEY', function ($amplitude, $rootScope, $location, AMPLITUDE_KEY) {
+.service('amp', ['$amplitude', '$rootScope', '$location', 'CONFIG', function ($amplitude, $rootScope, $location, CONFIG) {
   function init() {
-    $amplitude.init(AMPLITUDE_KEY);
+    $amplitude.init(CONFIG.AMPLITUDE_KEY);
   }
 
   /*function identifyUser(userId, userProperties) {
@@ -136,21 +123,16 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
     event: logEvent,
     //identifyUser: identifyUser
   };
-
 }])
     
-.factory('twitchFactory', ['$http', function($http) {
+.factory('twitchFactory', ['$http', 'CONFIG', function($http, CONFIG) {
     return {
-        'channel': function(channel) {
-            return $http.get('https://api.twitch.tv/kraken/streams/' + channel);
-        },
-        'topchannels': function() {
-            return $http.get('https://api.twitch.tv/kraken/streams?client_id=rj8utwzfkwrueeaff8g9eciakig863b');
-        }
+        channel: (channel) => $http.get('https://api.twitch.tv/kraken/streams/' + channel),
+        topchannels: () => $http.get('https://api.twitch.tv/kraken/streams?client_id=' + CONFIG.CLIENT_ID),
     }
 }])
 
-.factory('socket', ['WS_URL', 'EVENTS', '$rootScope', '$routeParams', function(WS_URL, EVENTS, $rootScope, $routeParams) {
+.factory('socket', ['CONFIG', 'EVENTS', '$rootScope', '$routeParams', function(CONFIG, EVENTS, $rootScope, $routeParams) {
     var handle = function(message) {
         //console.log('handle()', message)
         if (message.act == 'count') {
@@ -160,25 +142,37 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
             $rootScope.msgCounts[msg.md5] = msg;
             $rootScope.messages[msg.md5] = msg;
             
-            var totals = _.values($rootScope.msgCounts).sort(function(a, b) {return a.count - b.count}).reverse();
+            var totals = _.values($rootScope.msgCounts).sort((a, b) => a.count - b.count).reverse();
             $rootScope.totals = totals;
             
             //$scope.$apply();
             $rootScope.$broadcast(EVENTS.update);
         }
     };
+    var server_down = function() {
+        console.log('server down');
+        $rootScope.server_status = 'down';
+        $rootScope.$apply();
+    };
+    var server_up = function() {
+        console.log('server up');
+        $rootScope.server_status = 'up';
+        $rootScope.$apply();
+    };
+
+    // Setup
+    let io = new Faye.Client(CONFIG.WS_URL, {});
+    io.on('transport:down', server_down);
+    io.on('transport:up', server_up);
+
+    $rootScope.io = io;
     return {
-        init: function() {
-            $rootScope.io = new Faye.Client(WS_URL, {});
-        },
         emit: function(msg, channel) {
             console.log('emit', $rootScope.io);
-            console.log('my new channel', $routeParams.channel)
             return 'zb';
         },
         join: function(channel) {
             $rootScope.sub = $rootScope.io.subscribe('/' + channel, handle);
-            console.log('sub', $rootScope.sub)
         },
         part: function(channel) {
             // remove $rootScope.sub
@@ -480,6 +474,9 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
         $scope.channel_loaded = false;
         $scope.channel_not_live = true;
         $scope.channel = {};
+
+        $scope.server = () => $rootScope.server_status == 'up';
+        $scope.is_graph = () => _.contains(['pie', 'bubble', 'force'], $scope.graphType);
         
         $scope.$on('$routeChangeSuccess', function() {
             $rootScope.htmltitle = $routeParams.channel + ' - kappablob';
@@ -519,8 +516,6 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
         $scope.running = false;
         $scope.running_text = 'Start';
         $scope.channel = '';
-        
-        socket.init();
 
         $scope.limit = 5;
         $scope.highlighted = ''; // ID of the slice we're hovering
@@ -530,19 +525,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
         
         $scope.compare = '';
         $scope.ignore = [];
-        
-        //socket.on('any', (msg) => console.log(msg));
-        
-        /*socket.on('newcount', function(msg) {
-            // todo: convert this to just use msg, and not have to use _.pairs cause its stupid
-            $scope.msgCounts[msg.md5] = msg;
-            $scope.messages[msg.md5] = msg;
-            
-            var totals = _.values($scope.msgCounts).sort(function(a, b) {return a.count - b.count}).reverse();
-            $scope.totals = totals;
-            
-            $scope.$apply();
-        });*/
+
         $scope.$on(EVENTS.update, (evt) => {
             // get from rootScope
             //console.log('update event', evt);
@@ -566,14 +549,10 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
         });
         $scope.$watch('compare', function(newVal, oldVal) {
             $rootScope.kappa.compare = newVal.split(' ');
-            //console.log($rootScope.kappa.compare)
             $rootScope.$broadcast(EVENTS.redo_graph);
         })
         
-        $scope.results = function() {
-            //console.log($scope.msgCounts);  
-            return $scope.totals;
-        };
+        $scope.results = () => $scope.totals;
         /*
         $scope.pause = function() {
             console.log('start/pause ', $routeParams.channel);
@@ -590,7 +569,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
             }
         };
         */
-        $scope.clear = function() {
+        $scope.clear = () => {
             $scope.messages = [];
             $scope.msgCounts = {};
             $scope.totals = [];
@@ -641,6 +620,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
             }
             return filtered;
         };
+        $scope.total_messages = () => $scope.totals.length;
     }
 ])
 
@@ -662,7 +642,10 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
         var color = d3.scale.ordinal().range(['#73C8A9','#DEE1B6','#E1B866','#BD5532','#373B44']);
         
         scope.$watch('type', function(graphType, oldVal) {
-            //console.log('Switch graph type', graphType);
+            console.log('Switch graph type', graphType);
+            if (graphType == 'list') {
+                return;
+            }
             
             // Remove any old graphs
             d3.select(element[0]).selectAll('*').remove();
