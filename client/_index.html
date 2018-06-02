@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en" ng-app="kappablob">
   <head>
+  <meta charset="utf-8">
     <title ng-bind="htmltitle">kappablob2</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
@@ -68,7 +69,7 @@
       </div>
       <div class="row-fluid buffer-bottom">
         <div class="btn-group" role="group" aria-label="...">
-          <button type="button" class="btn btn-success" ng-model="running" ng-click="pause()">{{ running_text }}</button>
+          <button style="display:none" type="button" class="btn btn-success" ng-model="running" ng-click="pause()">{{ running_text }}</button>
           <button type="button" class="btn btn-default" ng-class="{'btn-info': graphType == 'pie'}" ng-click="graphType = 'pie'">Pie</button>
           <button type="button" class="btn btn-default" ng-class="{'btn-info': graphType == 'bubble'}" ng-click="graphType = 'bubble'">Bubbles</button>
           <button type="button" class="btn btn-default" ng-class="{'btn-info': graphType == 'force'}" ng-click="graphType = 'force'">Force</button>
@@ -130,9 +131,12 @@
         </div>
       </div>
     </div>
-    <script src="/socket.io/socket.io.js"></script>
+    <script src="/node_modules/faye/client/faye-browser.js"></script>
     <script src="/static/kappa.js"></script>
     <script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>
     <script src="/js/blob-ng.js"></script>
+    <script>
+      //var client = new Faye.Client('ws://lvh.me:8000/ws');
+    </script>
   </body>
 </html>

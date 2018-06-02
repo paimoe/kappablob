@@ -51,6 +51,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
 
 .constant('EVENTS', {
     clear: 'kappa-clear',
+    update: 'kappa-update',
     hover_piece: 'kappa-hover-item',
     hover_piece_out: 'kappa-hover-item-out',
     hover_list: 'kappa-hover-list',
@@ -59,9 +60,16 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
     redo_graph: 'kappa-redo-graph',
 })
 .constant('AMPLITUDE_KEY', 'f9617322a9f6b068ddc00f550c379845')
+.constant('WS_URL', 'http://lvh.me:8000/ws')
 
 .run(['$rootScope', function($rootScope) {
     $rootScope.kappa = {};
+    $rootScope.io = undefined;
+    $rootScope.sub = null;
+
+    $rootScope.messages = [];
+    $rootScope.msgCounts = {};
+    $rootScope.totals = [];
 }])
 
 .config(['$routeProvider', '$locationProvider',
@@ -89,7 +97,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
        'request': function(config) {
            // same as above
            config.headers['Client-ID'] = 'rj8utwzfkwrueeaff8g9eciakig863b';
-           console.log(config);
+           //console.log(config);
            
            return config;
         },
@@ -138,6 +146,47 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
         },
         'topchannels': function() {
             return $http.get('https://api.twitch.tv/kraken/streams?client_id=rj8utwzfkwrueeaff8g9eciakig863b');
+        }
+    }
+}])
+
+.factory('socket', ['WS_URL', 'EVENTS', '$rootScope', '$routeParams', function(WS_URL, EVENTS, $rootScope, $routeParams) {
+    var handle = function(message) {
+        //console.log('handle()', message)
+        if (message.act == 'count') {
+            // add to our stack
+            // todo: convert this to just use msg, and not have to use _.pairs cause its stupid
+            let msg = message.data;
+            $rootScope.msgCounts[msg.md5] = msg;
+            $rootScope.messages[msg.md5] = msg;
+            
+            var totals = _.values($rootScope.msgCounts).sort(function(a, b) {return a.count - b.count}).reverse();
+            $rootScope.totals = totals;
+            
+            //$scope.$apply();
+            $rootScope.$broadcast(EVENTS.update);
+        }
+    };
+    return {
+        init: function() {
+            $rootScope.io = new Faye.Client(WS_URL, {});
+        },
+        emit: function(msg, channel) {
+            console.log('emit', $rootScope.io);
+            console.log('my new channel', $routeParams.channel)
+            return 'zb';
+        },
+        join: function(channel) {
+            $rootScope.sub = $rootScope.io.subscribe('/' + channel, handle);
+            console.log('sub', $rootScope.sub)
+        },
+        part: function(channel) {
+            // remove $rootScope.sub
+            console.log('unsub');
+        },
+        on: function(evt, fn) {
+            // on incoming event, run fn()
+            fn();
         }
     }
 }])
@@ -415,8 +464,8 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
     }
 }])
 
-.controller('MainController', ['$rootScope', '$scope', '$filter','$routeParams', '$route', '$location', 'EVENTS', 'twitchFactory', 'amp',
-    function($rootScope, $scope, $filter, $routeParams, $route, $location, EVENTS, twitch, amp) {
+.controller('MainController', ['$rootScope', '$scope', '$filter','$routeParams', '$route', '$location', 'socket', 'EVENTS', 'twitchFactory', 'amp',
+    function($rootScope, $scope, $filter, $routeParams, $route, $location, socket, EVENTS, twitch, amp) {
         
         amp.init();
         
@@ -450,9 +499,11 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
         
         $scope.new_channel = function(channel) {
             console.log('Joining Channel', channel)  ;
-            
-            socket.emit('clearchannels');
-            socket.emit('joinchannel', channel);
+            //socket.publish()
+            socket.join(channel);
+
+            // remove any old data for now, so one page = one channel basically
+            $scope.clear();
             
             twitch.channel(channel).success(function(data) {
                 $scope.channel_loaded = true;
@@ -469,7 +520,8 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
         $scope.running_text = 'Start';
         $scope.channel = '';
         
-        var socket = io.connect();
+        socket.init();
+
         $scope.limit = 5;
         $scope.highlighted = ''; // ID of the slice we're hovering
         $scope.messages = [];
@@ -479,8 +531,9 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
         $scope.compare = '';
         $scope.ignore = [];
         
+        //socket.on('any', (msg) => console.log(msg));
         
-        socket.on('newcount', function(msg) {
+        /*socket.on('newcount', function(msg) {
             // todo: convert this to just use msg, and not have to use _.pairs cause its stupid
             $scope.msgCounts[msg.md5] = msg;
             $scope.messages[msg.md5] = msg;
@@ -488,6 +541,14 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
             var totals = _.values($scope.msgCounts).sort(function(a, b) {return a.count - b.count}).reverse();
             $scope.totals = totals;
             
+            $scope.$apply();
+        });*/
+        $scope.$on(EVENTS.update, (evt) => {
+            // get from rootScope
+            //console.log('update event', evt);
+            $scope.msgCounts = $rootScope.msgCounts;
+            $scope.messages = $rootScope.messages;
+            $scope.totals = $rootScope.totals;
             $scope.$apply();
         });
         
@@ -513,21 +574,22 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
             //console.log($scope.msgCounts);  
             return $scope.totals;
         };
-        
+        /*
         $scope.pause = function() {
-            console.log('start pause ', $routeParams.channel);
+            console.log('start/pause ', $routeParams.channel);
             if ($scope.running === true) {
                 $scope.running = false;
                 $scope.running_text = 'Start';
-                
-                socket.emit('stop', $routeParams.channel);
+                socket.emit('/'+$routeParams.channel, {act: 'start'});
+                //socket.emit('stop', $routeParams.channel);
             } else {
                 $scope.running = true;
                 $scope.running_text = 'Stop';
-                socket.emit('start', $routeParams.channel);
+                socket.emit('/'+$routeParams.channel, {act: 'stop'});
+                //socket.emit('start', $routeParams.channel);
             }
         };
-        
+        */
         $scope.clear = function() {
             $scope.messages = [];
             $scope.msgCounts = {};
