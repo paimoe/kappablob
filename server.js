@@ -1,15 +1,4 @@
-//
-
-function removeItem(d, key) {
-   if (!d.hasOwnProperty(key))
-      return
-   if (isNaN(parseInt(key)) || !(d instanceof Array))
-      delete d[key]
-   else
-      d.splice(key, 1)
-  return d;
-};
-
+"use strict";
 var config = require('./config.js');
 
 if (config.TWITCH_AUTH.length == 0) {
@@ -39,11 +28,6 @@ var cors = require('cors');
 var sprintf = require("sprintf-js").sprintf,
     vsprintf = require("sprintf-js").vsprintf
 
-var corsOptions = {
-  origin: 'http://lvh.me',
-  credentials:true,
-}
-
 var app = express();
 var server = http.createServer(app);
 var bayeux = new faye.NodeAdapter({mount: '/ws', timeout: 45});
@@ -55,13 +39,13 @@ bayeux.attach(server);
 // Routing
 // First, send a static file if it exists, then just send index (for angular routing)
 app.use(express.static(path.resolve(__dirname, 'client')));
-//app.use(cors(corsOptions))
+//app.use(cors({origin:config.CORS_ORIGIN, credentials:true}))
 app.use(function(req, res, next) {
   res.header('Access-Control-Allow-Origin', config.CORS_ORIGIN);
   res.header('Access-Control-Allow-Credentials', true);
   next();
 });
-server.listen(8000);
+server.listen(config.PORT);
 
 
 var messages = [];
@@ -119,7 +103,6 @@ client.on('chat', (channel, userstate, msg, from_us) => {
       
         // Delete older messages. Will only fire when a new message of the same thing comes in
         // which is also only when it will update
-        console.log('Deleting messages older than 5 minutes');
         let k = 'chats:' + chan + ':' + st.m;
         redis.zremrangebyscoreAsync(k, -Infinity, five_mins_ago()).then((resp) => {
           let del_count = resp;
@@ -249,8 +232,3 @@ app.get('/', function(req, res){
     res.set('Content-Type', 'text/html')
         .sendfile(__dirname + '/client/_index.html');
 });
-
-//app.listen(process.env.PORT || 3000, process.env.IP || "localhost", function(){
-  //var addr = app.address();
-  //console.log("Chat server listening at", addr.address + ":" + addr.port);
-//});
