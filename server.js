@@ -73,33 +73,28 @@ var client = new tmi.client(tmiOptions);
 client.connect();
 //console.log(client);
 
+// Message received from irc
 client.on('chat', (channel, userstate, msg, from_us) => {
   //console.log('chat received', channel, msg);
   var chan = channel.substring(1);
     if (!_.contains(msgblacklist, msg)) {
       // If number has changed, then resend the new amount
       var st = store_chat(chan, msg);// keeps chat and counts in memory
-      //console.log('st', st);
-      //return true;
+
       store_chat2(chan, msg); // puts it in the db
       chat_count(chan, st.m).then(function(resp) { 
         // get chats on this md5, for this channel. so the number
         // is only updated when a new message comes through, which can lead to stale data
         resp = _.map(resp, function(e) { return e.substring(e.indexOf(':') + 1); });
         var mx = _.max(_.groupBy(resp), 'length');
-        //console.log('mxxxxx', resp.length, mx);
+
         var ret = {'norm': st.n, 'count': resp.length, 'md5': st.m, 'high': mx[0]};
         //console.log('ret', ret);
-        // With this, a count of 0 should still be sent, and then delete the info on the client side
-        if (resp.length > 0) {
-          //broadcast('newcount', {'norm': st.n, 'count': resp.length, 'md5': st.m, 'high': mx[0]}, chan);
-        }
+        // TODO: With this, a count of 0 should still be sent, and then delete the info on the client side
         bayeux.getClient().publish('/' + chan, {
           act: 'count',
           data: ret,
-        })
-
-
+        });
       
         // Delete older messages. Will only fire when a new message of the same thing comes in
         // which is also only when it will update
@@ -107,7 +102,8 @@ client.on('chat', (channel, userstate, msg, from_us) => {
         redis.zremrangebyscoreAsync(k, -Infinity, five_mins_ago()).then((resp) => {
           let del_count = resp;
           let k = mx[0];
-          console.log(`Deleted ${del_count} messages from key ${k}`);
+          //console.log(`Deleted ${del_count} messages from key ${k}`);
+          // Notify client
         });
       });
     }
@@ -131,6 +127,9 @@ bayeux.on('subscribe', (clientId, channel) => {
     // already subbed, so will already be in the channel, so do nuthin?
   }
 });
+bayeux.on('unsubscribe', (clientId, channel) => {
+  console.log(clientId + ' left channel ' + channel)
+})
 
 if (!Date.now){
     Date.now = function() { return new Date().getTime(); };
@@ -208,6 +207,7 @@ function remove_old_chats(channel, md5) {
 function check_repetitive(message) {
   // Check if a message is just the same thing over and over
   // eg kappakappakappa
+  // also include 'omgKirby omgKirby omgK' ie if they were about to repeat it
   var fchar = message[0];
   
   try {
@@ -227,7 +227,7 @@ function five_mins_ago() {
   return Math.round(Date.now() / 1000 - 300);
 }
 
-app.get('/', function(req, res){
+app.get('*', function(req, res){
   console.log('serving index')
     res.set('Content-Type', 'text/html')
         .sendfile(__dirname + '/client/_index.html');

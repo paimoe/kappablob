@@ -40,12 +40,9 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
     compare: 'kappa-compare',
     redo_graph: 'kappa-redo-graph',
 })
-.constant('AMPLITUDE_KEY', 'f9617322a9f6b068ddc00f550c379845')
-.constant('WS_URL', 'http://lvh.me:8000/ws')
-.constant('CLIENT_ID', 'rj8utwzfkwrueeaff8g9eciakig863b')
 .constant('CONFIG', {
     'AMPLITUDE_KEY': 'f9617322a9f6b068ddc00f550c379845',
-    'WS_URL': 'http://lvh.me:8000/ws',
+    'WS_URL': 'http://lvh.me:8001/ws',
     'CLIENT_ID': 'rj8utwzfkwrueeaff8g9eciakig863b'
 })
 
@@ -53,6 +50,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
     $rootScope.kappa = {};
     $rootScope.io = undefined;
     $rootScope.sub = null;
+    $rootScope.channel = null;
 
     $rootScope.messages = [];
     $rootScope.msgCounts = {};
@@ -134,7 +132,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
 
 .factory('socket', ['CONFIG', 'EVENTS', '$rootScope', '$routeParams', function(CONFIG, EVENTS, $rootScope, $routeParams) {
     var handle = function(message) {
-        //console.log('handle()', message)
+        //console.log('handle()', message.data)
         if (message.act == 'count') {
             // add to our stack
             // todo: convert this to just use msg, and not have to use _.pairs cause its stupid
@@ -172,7 +170,10 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
             return 'zb';
         },
         join: function(channel) {
+            // unsub from others?
+            $rootScope.io.unsubscribe('/' + $rootScope.channel);
             $rootScope.sub = $rootScope.io.subscribe('/' + channel, handle);
+            $rootScope.channel = channel;
         },
         part: function(channel) {
             // remove $rootScope.sub
@@ -254,7 +255,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
                 
                 // Events
                 g.on('mouseover', (d, i) => $rootScope.$broadcast(EVENTS.hover_piece, d.data.id));
-                g.on('mouseout', (d, i) => $rootscope.$broadcast(EVENTS.hover_piece_out));
+                g.on('mouseout', (d, i) => $rootScope.$broadcast(EVENTS.hover_piece_out));
             
             }
         },
@@ -278,6 +279,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
                 args.svg.selectAll('*').remove(); // Clear out the bubbles
                 
                 // Get list of counts
+                // TODO: do we use picknodes()
                 var piedata = [];
                 _.each(args.nodes, function(ele, idx) {
                     piedata.push(ele);
@@ -439,9 +441,9 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
 
 .filter('picknodes', ['$rootScope', 'EVENTS', function($rootScope, EVENTS) {
     return function(nodes) {
-        var limit = $rootScope.kappa.limit || 1;
+        var min = $rootScope.kappa.min || 1;
         //console.log('limit', limit);
-        var filtered = _.filter(nodes, function(e) { return e.value >= limit; });
+        var filtered = _.filter(nodes, (e) => e.value >= min);
         
         // Run compare
         if (Array.isArray($rootScope.kappa.compare) && $rootScope.kappa.compare.length > 1) {
@@ -461,6 +463,11 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
         }*/
         
         //console.log('total nodes', Object.keys(nodes).length, filtered.length);
+
+        // show a maximum
+        var limit = $rootScope.kappa.limit || 10;
+        filtered = filtered.slice(0, limit);
+
         return _.values(filtered);//.filter(function(e) { console.log('filter', e);return true; }));
     }
 }])
@@ -473,8 +480,8 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
         $scope.d3 = {fixedNodes: []};
         $scope.graphType =  'pie';
         $scope.messages = {}; // these 2 are kinda related maybe
-        $scope.min = 2;
-        $rootScope.htmltitle = 'kappablob';
+        $scope.min = 1;
+        $rootScope.htmltitle = 'Twitch Chat Stats';
         
         $scope.twitch = {'loaded': false};
         $scope.twitch.topchannels = [];
@@ -486,7 +493,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
         $scope.is_graph = () => _.contains(['pie', 'bubble', 'force'], $scope.graphType);
         
         $scope.$on('$routeChangeSuccess', function() {
-            $rootScope.htmltitle = $routeParams.channel + ' - kappablob';
+            $rootScope.htmltitle = $routeParams.channel + ' - Twitch Chat Stats';
             amp.event('new channel', {'name': $routeParams.channel});
             $scope.new_channel($routeParams.channel);
         });
@@ -524,7 +531,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
         $scope.running_text = 'Start';
         $scope.channel = '';
 
-        $scope.limit = 5;
+        $scope.limit = 10;
         $scope.highlighted = ''; // ID of the slice we're hovering
         $scope.messages = [];
         $scope.msgCounts = {};
@@ -551,13 +558,17 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
             $scope.$apply();
         });
         $scope.$watch('min', function(newVal, oldVal) {
-            $rootScope.kappa.limit = newVal;
+            $rootScope.kappa.min = newVal;
             $rootScope.$broadcast(EVENTS.redo_graph);
         });
         $scope.$watch('compare', function(newVal, oldVal) {
-            $rootScope.kappa.compare = newVal.split(' ');
+            $rootScope.kappa.compare = _.map(newVal.split(' '), (x) => x.toUpperCase());
             $rootScope.$broadcast(EVENTS.redo_graph);
-        })
+        });
+        $scope.$watch('limit', (newV, oldV) => {
+            $rootScope.kappa.limit = newV;
+            $rootScope.$broadcast(EVENTS.redo_graph);
+        });
         
         $scope.results = () => $scope.totals;
         /*
@@ -580,16 +591,12 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
             $scope.messages = [];
             $scope.msgCounts = {};
             $scope.totals = [];
+
+            $rootScope.messages = [];
+            $rootScope.msgCounts = {};
+            $rootScope.totals = [];
             $rootScope.NODES = {};
             $rootScope.$broadcast(EVENTS.clear);
-        };
-        
-        $scope.do_compare = function() {
-            // Restrict output to only the shown keywords
-            var kw = $scope.compare.split(' ');
-            //console.log(kw);
-            $rootScope.kappa.compare = kw;
-            //$rootScope.$broadcast(EVENTS.compare, kw);
         };
         
         $scope.do_ignore = function() {
@@ -625,6 +632,10 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
             } else {
                 $scope.hidden_singles = 0;
             }
+            // check if we have a limit
+            if ($scope.limit) {
+                return filtered.slice(0, $scope.limit);
+            }
             return filtered;
         };
         $scope.total_messages = () => $scope.totals.length;
@@ -645,8 +656,23 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
       
         var nodes = {};
                     
+
         var color = d3.scale.ordinal().range(["#69D2E7", "#A7DBD8", "#E0E4CC", "#F38630", "#FA6900"]);
         var color = d3.scale.ordinal().range(['#73C8A9','#DEE1B6','#E1B866','#BD5532','#373B44']);
+        var colors = ['#63666A', '#77C5D5', '#ED8B00', '#78BE20','#73C8A9','#DEE1B6','#E1B866','#BD5532','#373B44'];
+        var color = d3.scale.ordinal().range(colors);
+        var colorID = 0;
+
+        function next_color() {
+            let clen = colors.length;
+            if (colorID == clen) {
+                colorID = 0;
+            }
+            var ret = colors[colorID];
+
+            colorID += 1;
+            return ret;
+        };
         
         scope.$watch('type', function(graphType, oldVal) {
             console.log('Switch graph type', graphType);
@@ -668,7 +694,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
                     title: ele.high,
                     value: Math.min(100, ele.count),
                     radius: Math.max(10, Math.min(ele.count, 100)),
-                    fill: color(_.sample(_.range(0, 4)))
+                    fill: next_color()
                 };
                 $rootScope.NODES = graph.nodes;
             };
