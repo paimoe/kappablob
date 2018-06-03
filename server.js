@@ -105,6 +105,9 @@ client.on('chat', (channel, userstate, msg, from_us) => {
           //console.log(`Deleted ${del_count} messages from key ${k}`);
           // Notify client
         });
+
+        // remove old ones from redis
+        remove_old();
       });
     }
 })
@@ -225,6 +228,24 @@ function is_emote(message) {
 
 function five_mins_ago() {
   return Math.round(Date.now() / 1000 - 300);
+}
+
+var REMOVE_CURSOR = 0; // start at 0
+function remove_old() {
+  // Remove old chats from their sorted sets (for now, >1 hour)
+  // Have to loop through all available keys, check their scores, and remove
+  redis.scanAsync(REMOVE_CURSOR, 'MATCH', 'chats:*', 'COUNT', '500').then((resp) => {
+    REMOVE_CURSOR = resp[0];
+    //console.log('Updated REMOVE_CURSOR to ' + REMOVE_CURSOR);
+    _.each(resp[1], (ele) => {
+      redis.zremrangebyscoreAsync(ele, -Infinity, five_mins_ago()).then((deleted) => {
+        if (deleted > 0) {
+          //console.log(`deleted ${deleted} from ${ele}`);
+        }
+      });
+    });
+    //console.log('ran command', resp);
+  })
 }
 
 app.get('*', function(req, res){

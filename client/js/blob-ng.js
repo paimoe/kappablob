@@ -42,6 +42,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
 })
 .constant('CONFIG', {
     'AMPLITUDE_KEY': 'f9617322a9f6b068ddc00f550c379845',
+    //'WS_URL': 'https://twitch.paimoe.com/ws',
     'WS_URL': 'http://lvh.me:8001/ws',
     'CLIENT_ID': 'rj8utwzfkwrueeaff8g9eciakig863b'
 })
@@ -633,7 +634,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
                 $scope.hidden_singles = 0;
             }
             // check if we have a limit
-            if ($scope.limit) {
+            if ($scope.limit && $scope.graphType != 'list') {
                 return filtered.slice(0, $scope.limit);
             }
             return filtered;
