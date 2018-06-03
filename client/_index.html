@@ -43,6 +43,10 @@
       .buffer-bottom {
         margin-bottom:20px;
       }
+      text {
+        fill: #333;
+
+      }
     </style>
   </head>
   <body>
@@ -71,7 +75,7 @@
           <button style="display:none" type="button" class="btn btn-success" ng-model="running" ng-click="pause()">{{ running_text }}</button>
           <button type="button" class="btn btn-default" ng-class="{'btn-info': graphType == 'pie'}" ng-click="graphType = 'pie'">Pie</button>
           <button type="button" class="btn btn-default" ng-class="{'btn-info': graphType == 'bubble'}" ng-click="graphType = 'bubble'">Bubbles</button>
-          <button type="button" class="btn btn-default" ng-class="{'btn-info': graphType == 'force'}" ng-click="graphType = 'force'">Force</button>
+          <!--<button type="button" class="btn btn-default" ng-class="{'btn-info': graphType == 'force'}" ng-click="graphType = 'force'">Force</button>-->
           <button type="button" class="btn btn-default" ng-class="{'btn-info': graphType == 'list'}" ng-click="graphType = 'list'">List</button>
           <!--
           <button type="button" class="btn btn-default" disabled>Stacked</button>

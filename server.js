@@ -57,7 +57,7 @@ bayeux.attach(server);
 app.use(express.static(path.resolve(__dirname, 'client')));
 //app.use(cors(corsOptions))
 app.use(function(req, res, next) {
-  res.header('Access-Control-Allow-Origin', 'http://lvh.me:8000');
+  res.header('Access-Control-Allow-Origin', config.CORS_ORIGIN);
   res.header('Access-Control-Allow-Credentials', true);
   next();
 });
@@ -114,9 +114,19 @@ client.on('chat', (channel, userstate, msg, from_us) => {
           act: 'count',
           data: ret,
         })
-      });
+
+
       
-      // Delete older messages
+        // Delete older messages. Will only fire when a new message of the same thing comes in
+        // which is also only when it will update
+        console.log('Deleting messages older than 5 minutes');
+        let k = 'chats:' + chan + ':' + st.m;
+        redis.zremrangebyscoreAsync(k, -Infinity, five_mins_ago()).then((resp) => {
+          let del_count = resp;
+          let k = mx[0];
+          console.log(`Deleted ${del_count} messages from key ${k}`);
+        });
+      });
     }
 })
 

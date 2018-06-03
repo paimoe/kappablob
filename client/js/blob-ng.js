@@ -45,7 +45,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
 .constant('CLIENT_ID', 'rj8utwzfkwrueeaff8g9eciakig863b')
 .constant('CONFIG', {
     'AMPLITUDE_KEY': 'f9617322a9f6b068ddc00f550c379845',
-    'WS_UR': 'http://lvh.me:8000/ws',
+    'WS_URL': 'http://lvh.me:8000/ws',
     'CLIENT_ID': 'rj8utwzfkwrueeaff8g9eciakig863b'
 })
 
@@ -221,7 +221,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
                 
                 var pie = d3.layout.pie()
                 .sort(null)
-                .value(function(d) { return d.value; });
+                .value((d) => d.value);
                 
                 //console.log(_.pluck(args.nodes, 'value'))
                 var g = args.svg.selectAll(".arc")
@@ -229,25 +229,32 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
                 .enter()
                 .append("g")
                 .attr("class", "arc pieslice")
-                .attr('id', function(d, i) { return 'pie-' + d.data.id; });
+                .attr('id', (d, i) => 'pie-' + d.data.id);
                 
                 g.append("path")
                 .attr("d", args.x.arc)
-                .style("fill", function(d, i) { return d.data.fill; });
+                .style("fill", (d, i) => d.data.fill);
                 
                 g.append("text")
-                .attr("transform", function(d) { return "translate(" + args.x.labelArc.centroid(d) + ")"; })
+                .attr("transform", (d) => {
+                    // http://bl.ocks.org/vigorousnorth/7331bb51d4f0c2ae0314
+                    // occasionally upside down, and their center point isn't right, but close enough
+                    var midAngle = d.endAngle < Math.PI ? d.startAngle / 2 + d.endAngle / 2 : d.startAngle/2  + d.endAngle/2 + Math.PI;
+                    return "translate(" + args.x.labelArc.centroid(d)[0] + "," + args.x.labelArc.centroid(d)[1] + ") rotate(-90) rotate(" + (midAngle * 180/Math.PI) + ")";
+                })
                 .attr("dy", ".35em")
-                .text(function(d) { return d.data.name.substring(0, 10); });
+                .text((d) => {
+                    //console.log(d);return d.data.name.substring(0, 10); 
+                    let name = d.data.title.substring(0, 10);
+                    if (d.data.title.length > 10) {
+                        name += '...';
+                    }
+                    return name;
+                });
                 
                 // Events
-                g.on('mouseover', function(d, i) {
-                    var md5 = d.data.id;
-                    $rootScope.$broadcast(EVENTS.hover_piece, md5);
-                });
-                g.on('mouseout', function(d, i) {
-                    $rootScope.$broadcast(EVENTS.hover_piece_out);
-                });
+                g.on('mouseover', (d, i) => $rootScope.$broadcast(EVENTS.hover_piece, d.data.id));
+                g.on('mouseout', (d, i) => $rootscope.$broadcast(EVENTS.hover_piece_out));
             
             }
         },
@@ -658,6 +665,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
                 graph.nodes[ele.md5] = { 
                     id: ele.md5,
                     name: ele.norm, 
+                    title: ele.high,
                     value: Math.min(100, ele.count),
                     radius: Math.max(10, Math.min(ele.count, 100)),
                     fill: color(_.sample(_.range(0, 4)))
