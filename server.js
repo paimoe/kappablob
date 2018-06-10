@@ -45,7 +45,9 @@ app.use(function(req, res, next) {
   res.header('Access-Control-Allow-Credentials', true);
   next();
 });
-server.listen(config.PORT);
+server.listen(config.PORT, () => {
+  console.log('Server running on ' + config.PORT);
+});
 
 
 var messages = [];

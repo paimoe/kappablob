@@ -146,6 +146,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
             
             //$scope.$apply();
             $rootScope.$broadcast(EVENTS.update);
+            $rootScope.$broadcast(EVENTS.redo_graph);
         }
     };
     var server_down = function() {
@@ -464,6 +465,8 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
         }*/
         
         //console.log('total nodes', Object.keys(nodes).length, filtered.length);
+        // Sort by count
+        var filtered = _.sortBy(filtered, 'value').reverse();
 
         // show a maximum
         var limit = $rootScope.kappa.limit || 10;
