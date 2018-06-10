@@ -42,8 +42,7 @@ var app = angular.module('kappablob', ['ngRoute', 'angular-amplitude'])
 })
 .constant('CONFIG', {
     'AMPLITUDE_KEY': 'f9617322a9f6b068ddc00f550c379845',
-    //'WS_URL': 'https://twitch.paimoe.com/ws',
-    'WS_URL': 'http://lvh.me:8001/ws',
+    'WS_URL': '/ws',
     'CLIENT_ID': 'rj8utwzfkwrueeaff8g9eciakig863b'
 })
 
