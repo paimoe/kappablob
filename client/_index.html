@@ -24,7 +24,8 @@
         opacity: 0.5;
       }
       div.piebox {
-        border: 1px solid #fbeeee;
+        background: linear-gradient(to bottom, #ccc 0%, #fff 30%);
+        border: 1px solid #c5c5c5;
       }
       circle.glow {
         stroke: red;
@@ -47,9 +48,27 @@
         fill: #333;
 
       }
+      .topper {
+        height:5px;
+        background:repeating-linear-gradient(
+          to right,
+          #63666A 0,
+          #63666A 50px,
+          #77C5D5 50px,
+          #77C5D5 100px,
+          #ED8B00 100px,
+          #ED8B00 150px,
+          #78BE20 150px,
+          #78BE20 200px,
+          #73C8A9 200px,
+          #73C8A9 250px
+          
+          );
+      }
       nav {
           height: 60px;
           background:#202427;
+          border-bottom:1px solid #fff;
       }
       nav h2 {
           line-height: 60px;
@@ -78,12 +97,91 @@
           text-decoration:none;
           font-family: Lato, sans-serif;
       }
+
+      /* attempt */
+      .container {
+        background:#fff;
+        border: 1px solid #73C8A9;
+        border-top:0;
+        box-shadow: inset 0px 0px 20px 10px #ccc;
+        /*animation: bgchange 15s infinite alternate;*/
+      }
+      body {
+        /*background: linear-gradient(
+          to bottom,
+          #73C8A9 0%,
+          #fff 80%
+          );*/
+        /*animation: bgchange 15s infinite alternate;*/
+        background:#202427;
+      }
+      @keyframes bgchange {
+        /*
+        CAN'T ANIMATE LINEAR GRADIENTS >:(
+
+        0% { background: linear-gradient(to bottom, #63666a 0%, #fff 100%); }
+        20% { background: linear-gradient(to bottom, #77C5D5 0%, #fff 100%); }
+        40% { background: linear-gradient(to bottom, #ED8B00 0%, #fff 100%); }
+        60% { background: linear-gradient(to bottom, #78BE20 0%, #fff 100%); }
+        100% { background: linear-gradient(to bottom, #73C8A9 0%, #fff 100%); }*/
+
+        0% { background: #63666a; }
+        20% { background: #77C5D5; }
+        40% { background: #ED8B00; }
+        60% { background: #78BE20; }
+        100% { background:#73C8A9; }
+        /*0% {  box-shadow: 0px 0px 58px 22px #63666a; }
+        20% {   box-shadow: 0px 0px 58px 22px #77C5D5; }
+        40% {   box-shadow: 0px 0px 58px 22px #ED8B00; }
+        60% {   box-shadow: 0px 0px 58px 22px #78BE20; }
+        100% {  box-shadow: 0px 0px 58px 22px #73C8A9; }
+trying with 2
+        */
+        /* nah
+        0% {    box-shadow: 20px 0px 50px -10px #63666a, -20px 0px 50px -10px #63666a; }
+        20% {   box-shadow: 20px 0px 50px -10px #77C5D5, -20px 0px 50px -10px #77C5D5; }
+        40% {   box-shadow: 20px 0px 50px -10px #ED8B00, -20px 0px 50px -10px #ED8B00; }
+        60% {   box-shadow: 20px 0px 50px -10px #78BE20, -20px 0px 50px -10px #78BE20; }
+        100% {  box-shadow: 20px 0px 50px -10px #73C8A9, -20px 0px 50px -10px #73C8A9; }
+        */
+
+      }
+      @keyframes colorchange {
+        0% { color: #63666a; }
+        20% { color: #77C5D5; }
+        40% { color: #ED8B00; }
+        60% { color: #78BE20; }
+        100% { color:#73C8A9; }
+      }
+      @keyframes colorchangeshadow {
+        0% { text-shadow: 1px 1px 15px #63666a; }
+        20% { text-shadow: 1px 1px 15px #77C5D5; }
+        40% { text-shadow: 1px 1px 15px #ED8B00; }
+        60% { text-shadow: 1px 1px 15px #78BE20; }
+        100% { text-shadow: 1px 1px 15px #73C8A9; }        
+      }
+      .homelink {
+        animation: colorchangeshadow 20s infinite alternate;
+        color:#fff;
+      }
+      .homelink:hover {
+        color:#fff;
+      }
+      .mainbg {
+        /*animation: bgchange 20s infinite alternate;*/
+      }
+      .mainbgmask {
+        /* NO WORKY
+        -webkit-mask-image: linear-gradient(to bottom, rgb(0,0,0, 1) 0%, rgb(0,0,0,0) 100%);
+        */
+      }
     </style>
   </head>
   <body ng-controller="MainController">
+    <div class="topper"></div>
     <nav>
       <div>
-        <h2><a href="/">kappablob</a></h2>
+        <h2><a href="/" class="homelink">kappablob</a></h2>
         <p><span ng-click="reload_topchannels()" id="reloadchannels" title="Refresh">Top Channels:</span>
           
           <span ng-hide="twitch.loaded">loading...</span>
@@ -91,114 +189,118 @@
         </p>
       </div>
     </nav>
-    <div class="container">
-      <div class="page-header" ng-hide="channel_loaded">
-        <p>Top Channels:
-          <span ng-hide="twitch.loaded">loading...</span>
-          <span ng-show="twitch.loaded" ng-repeat="c in twitch.topchannels | limitTo:15"><a href="/{{ c.channel.name }}">{{ c.channel.display_name }}</a>, </span>
-        </p>
-      </div>
-      <div ng-show="channel_loaded">
-        <div id="channel_info" style="margin-top:15px" class="media" ng-show="!channel_not_live">
-            <div class="media-left media-top">
-              <img class="media-object" style="width:64px" src="{{ channel.stream.channel.logo }}" />
+    <div class="mainbg">
+      <div class="mainbgmask">
+        <div class="container">
+          <div class="page-header" ng-hide="channel_loaded">
+            <p>Top Channels:
+              <span ng-hide="twitch.loaded">loading...</span>
+              <span ng-show="twitch.loaded" ng-repeat="c in twitch.topchannels | limitTo:15"><a href="/{{ c.channel.name }}">{{ c.channel.display_name }}</a>, </span>
+            </p>
+          </div>
+          <div ng-show="channel_loaded">
+            <div id="channel_info" style="margin-top:15px" class="media" ng-show="!channel_not_live">
+                <div class="media-left media-top">
+                  <img class="media-object" style="width:64px;border:1px solid #9faeb9" src="{{ channel.stream.channel.logo }}" />
+                </div>
+                <div class="media-body">
+                  <h3 style="margin-top:0">{{ channel.stream.channel.display_name }} - <small>{{ channel.stream.channel.status }} <a href="{{ channel.stream.channel.url }}">(View on Twitch)</a></small></h3>
+                  <p>Viewers: {{ channel.stream.viewers }}</p>
+                </div>
             </div>
-            <div class="media-body">
-              <h3 style="margin-top:0">{{ channel.stream.channel.display_name }} - <small>{{ channel.stream.channel.status }} <a href="{{ channel.stream.channel.url }}">(View on Twitch)</a></small></h3>
-              <p>Viewers: {{ channel.stream.viewers }}</p>
-            </div>
-        </div>
-        <div ng-show="channel_not_live">
-          <h3>Channel is not live</h3>
-        </div>
-      </div>
-
-      <div class="row-fluid buffer-bottom buffer-top">
-        <div class="btn-group" role="group" aria-label="...">
-          <!--<button style="display:none" type="button" class="btn btn-success" ng-model="running" ng-click="pause()">{{ running_text }}</button>-->
-          <button type="button" class="btn btn-default" ng-class="{'btn-info': graphType == 'pie'}" ng-click="graphType = 'pie'">Pie</button>
-          <button type="button" class="btn btn-default" ng-class="{'btn-info': graphType == 'bubble'}" ng-click="graphType = 'bubble'">Bubbles</button>
-          <!--<button type="button" class="btn btn-default" ng-class="{'btn-info': graphType == 'force'}" ng-click="graphType = 'force'">Force</button>-->
-          <button type="button" class="btn btn-default" ng-class="{'btn-info': graphType == 'list'}" ng-click="graphType = 'list'">List</button>
-          <!--
-          <button type="button" class="btn btn-default" disabled>Stacked</button>
-          <button type="button" class="btn btn-default" disabled>Voronoi</button>
-          -->
-          <button type="button" class="btn btn-default" ng-click="clear()">Clear</button> 
-        </div>
-        
-      </div>
-      <div class="row-fluid">
-        <div class="col-md-8 piebox" ng-show="is_graph()">
-          <d3-graph data="totals" type="graphType"></d3-graph>
-        </div>
-        <div ng-cloak ng-show="graphType == 'list'" class="col-md-8">
-          <h3>List ({{ total_messages() }} total)</h3>
-          <table class="table table-striped table-bordered">
-            <thead>
-              <tr>
-                <th>Message</th>
-                <th>Count</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr ng-repeat="msg in list_of_messages()">
-                <td>{{ msg.high }}</td>
-                <td>{{ msg.count }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="col-md-4">
-
-          <div ng-cloak ng-show="server() == true && channel_loaded" class="alert alert-success">Running &#x2714;</div>
-          <div ng-cloak ng-show="server() == false && channel_loaded" class="alert alert-danger">Server offline</div>
-
-          <div class="panel panel-default">
-            <div class="panel-heading">Filters</div>
-            <div style="" class="panel-body">
-                
-                  <div class="col-sm-10 input-group">
-                    <input type="number" class="form-control" min="1" ng-model="min" ng-change="add_filter('minimum')" placeholder="Minimum" />
-                    <a class="input-group-addon" title="Minimum count">?</a>
-                  </div>                  
-                  <br />
-                  <div class="col-sm-10 input-group">
-                    <input type="text" class="form-control" ng-model="compare" placeholder="Compare" />
-                    <a class="input-group-addon" title="Restrict to only these (eg 'lul monkas')">?</a>
-                  </div>
-                  <br />
-                  <div class="col-sm-10 input-group">
-                    <input type="number" max="30" min="10" class="form-control" ng-model="limit" placeholder="Limit" />
-                    <a class="input-group-addon" title="Maximum number of results to display">?</a>
-                  </div>
-
-                  <!--
-                  <br />
-                  <div class="col-sm-10 input-group">
-                    <input type="text" class="form-control" ng-model="ignore" ng-change="do_ignore()" placeholder="Ignore" />
-                    <a class="input-group-addon">[?]</a>
-                  </div>-->
-              
+            <div ng-show="channel_not_live">
+              <h3>Channel is not live</h3>
             </div>
           </div>
-          <table class="table table-striped table-bordered" ng-hide="graphType == 'list'">
-            <thead>
-              <tr>
-                <th class="span7">Message</th>
-                <th class="span2">Count</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr ng-repeat="msg in list_of_messages()" id="{{ 'row-' + msg.md5 }}" ng-mouseover="highlight_bubble(msg.md5)" ng-mouseout="unhighlight_bubble(msg.md5)" ng-class="highlightWhich(msg)">
-                <td class="span7">{{ msg.high | limitTo:30 }}</td>
-                <td class="span2">{{ msg.count }}</td>
-              </tr>
-              <tr>
-                <td colspan="2">and {{ hidden_singles }} others with a count of 1</td>
-              </tr>
-            </tbody>
-          </table>
+
+          <div class="row-fluid buffer-bottom buffer-top">
+            <div class="btn-group" role="group" aria-label="...">
+              <!--<button style="display:none" type="button" class="btn btn-success" ng-model="running" ng-click="pause()">{{ running_text }}</button>-->
+              <button type="button" class="btn btn-default" ng-class="{'btn-info': graphType == 'pie'}" ng-click="graphType = 'pie'">Pie</button>
+              <button type="button" class="btn btn-default" ng-class="{'btn-info': graphType == 'bubble'}" ng-click="graphType = 'bubble'">Bubbles</button>
+              <!--<button type="button" class="btn btn-default" ng-class="{'btn-info': graphType == 'force'}" ng-click="graphType = 'force'">Force</button>-->
+              <button type="button" class="btn btn-default" ng-class="{'btn-info': graphType == 'list'}" ng-click="graphType = 'list'">List</button>
+              <!--
+              <button type="button" class="btn btn-default" disabled>Stacked</button>
+              <button type="button" class="btn btn-default" disabled>Voronoi</button>
+              -->
+              <button type="button" class="btn btn-default" ng-click="clear()">Clear</button> 
+            </div>
+            
+          </div>
+          <div class="row-fluid">
+            <div class="col-md-8 piebox" ng-show="is_graph()">
+              <d3-graph data="totals" type="graphType"></d3-graph>
+            </div>
+            <div ng-cloak ng-show="graphType == 'list'" class="col-md-8">
+              <h3>List ({{ total_messages() }} total)</h3>
+              <table class="table table-striped table-bordered">
+                <thead>
+                  <tr>
+                    <th>Message</th>
+                    <th>Count</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr ng-repeat="msg in list_of_messages()">
+                    <td>{{ msg.high }}</td>
+                    <td>{{ msg.count }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="col-md-4">
+
+              <div ng-cloak ng-show="server() == true && channel_loaded" class="alert alert-success">Running &#x2714;</div>
+              <div ng-cloak ng-show="server() == false && channel_loaded" class="alert alert-danger">Server offline</div>
+
+              <div class="panel panel-default">
+                <div class="panel-heading">Filters</div>
+                <div style="" class="panel-body">
+                    
+                      <div class="col-sm-10 input-group">
+                        <input type="number" class="form-control" min="1" ng-model="min" ng-change="add_filter('minimum')" placeholder="Minimum" />
+                        <a class="input-group-addon" title="Minimum count">?</a>
+                      </div>                  
+                      <br />
+                      <div class="col-sm-10 input-group">
+                        <input type="text" class="form-control" ng-model="compare" placeholder="Compare" />
+                        <a class="input-group-addon" title="Restrict to only these (eg 'lul monkas')">?</a>
+                      </div>
+                      <br />
+                      <div class="col-sm-10 input-group">
+                        <input type="number" max="30" min="10" class="form-control" ng-model="limit" placeholder="Limit" />
+                        <a class="input-group-addon" title="Maximum number of results to display">?</a>
+                      </div>
+
+                      <!--
+                      <br />
+                      <div class="col-sm-10 input-group">
+                        <input type="text" class="form-control" ng-model="ignore" ng-change="do_ignore()" placeholder="Ignore" />
+                        <a class="input-group-addon">[?]</a>
+                      </div>-->
+                  
+                </div>
+              </div>
+              <table class="table table-striped table-bordered" ng-hide="graphType == 'list'">
+                <thead>
+                  <tr>
+                    <th class="span7">Message</th>
+                    <th class="span2">Count</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr ng-repeat="msg in list_of_messages()" id="{{ 'row-' + msg.md5 }}" ng-mouseover="highlight_bubble(msg.md5)" ng-mouseout="unhighlight_bubble(msg.md5)" ng-class="highlightWhich(msg)">
+                    <td class="span7">{{ msg.high | limitTo:30 }}</td>
+                    <td class="span2">{{ msg.count }}</td>
+                  </tr>
+                  <tr>
+                    <td colspan="2">and {{ hidden_singles }} others with a count of 1</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </div>
