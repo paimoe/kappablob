@@ -4,7 +4,7 @@
   "description": "Show frequency/recency of Twitch.tv messages in channels.",
   "main": "server.js",
   "dependencies": {
-    "async": "^0.2.10",
+    "async": "^2.6.4",
     "bluebird": "^3.5.1",
     "cors": "^2.8.4",
     "express": "^3.2.6",
